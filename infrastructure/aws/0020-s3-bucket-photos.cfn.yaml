@@ -1,0 +1,107 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Bucket and CloudFront for kick-in.media photo assets'
+
+Parameters:
+
+  DomainName:
+    Type: String
+    Default: kick-in.media
+
+  HostedZoneId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /route53/kick-in.media
+
+Resources:
+
+  # CloudFront
+  CloudFrontWebDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: kick-in.media front-end
+        Aliases:
+          - photos.kick-in.media
+        IPV6Enabled: true
+        Origins:
+          - DomainName: !GetAtt S3Bucket.RegionalDomainName
+            Id: frontend-site
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOAI}"
+        DefaultRootObject: index.html
+        ViewerCertificate:
+          AcmCertificateArn: arn:aws:acm:us-east-1:990658861879:certificate/9000e290-e8b6-448c-a1e6-6da09a58ee2b
+          SslSupportMethod: sni-only
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          DefaultTTL: 0
+          ForwardedValues:
+            QueryString: false
+          TargetOriginId: frontend-site
+          ViewerProtocolPolicy: redirect-to-https
+
+  CloudFrontOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: "Identity for kick-in.media photos bucket"
+
+  # DNS
+  DNSPhotoRecord1:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontWebDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+      Name: !Sub "photos.${DomainName}."
+      HostedZoneId: !Ref HostedZoneId
+      Type: A
+
+  DNSPhotoRecord2:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontWebDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+      Name: !Sub "photos.${DomainName}."
+      HostedZoneId: !Ref HostedZoneId
+      Type: AAAA
+
+  # Bucket
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: kickin-media-photos
+      WebsiteConfiguration:
+        IndexDocument: index.html
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject
+            Effect: Allow
+            Resource:
+              - !Sub "${S3Bucket.Arn}/*"
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId
+          - Action:
+              - s3:ListBucket
+            Effect: Allow
+            Resource:
+              - !GetAtt S3Bucket.Arn
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId

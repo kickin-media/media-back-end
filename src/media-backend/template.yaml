@@ -1,0 +1,184 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SAM template for media-backend
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+
+Parameters:
+
+  DomainName:
+    Type: String
+    Default: kick-in.media
+
+  HostedZoneId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /route53/kick-in.media
+
+Resources:
+
+  EventController:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: media_backend/
+      Handler: event.handle
+      Runtime: python3.9
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'dynamodb:Query'
+                - 'dynamodb:GetItem'
+                - 'dynamodb:UpdateItem'
+                - 'dynamodb:DeleteItem'
+              Resource:
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/kickin-media-data'
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/kickin-media-data/*'
+            - Effect: Allow
+              Action:
+                - 'cloudfront:CreateInvalidation'
+              Resource: '*'
+      Events:
+        GetEvent:
+          Type: HttpApi
+          Properties:
+            Auth:
+              Authorizer: NONE
+            Path: /event/{id}
+            Method: get
+            ApiId: !Ref MediaBackendApi
+        GetEvents:
+          Type: HttpApi
+          Properties:
+            Auth:
+              Authorizer: NONE
+            Path: /events
+            Method: get
+            ApiId: !Ref MediaBackendApi
+        PostEvent:
+          Type: HttpApi
+          Properties:
+            Auth:
+              ApiKeyRequired: True
+              AuthorizationScopes:
+                - events:manage
+            Path: /event
+            Method: post
+            ApiId: !Ref MediaBackendApi
+        PutEvent:
+          Type: HttpApi
+          Properties:
+            Auth:
+              ApiKeyRequired: True
+              AuthorizationScopes:
+                - events:manage
+            Path: /event/{id}
+            Method: put
+            ApiId: !Ref MediaBackendApi
+        DeleteEvent:
+          Type: HttpApi
+          Properties:
+            Auth:
+              ApiKeyRequired: True
+              AuthorizationScopes:
+                - events:manage
+            Path: /event/{id}
+            Method: delete
+            ApiId: !Ref MediaBackendApi
+
+  ####
+  # The REST API
+  ####
+
+  MediaBackendApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Auth:
+        Authorizers:
+          IdbAuthorizer:
+            AuthorizationScopes:
+              - all
+            IdentitySource: "$request.header.Authorization"
+            JwtConfiguration:
+              issuer: "https://kickin-media.eu.auth0.com/"
+              audience:
+                - "https://api.kick-in.media"
+        DefaultAuthorizer: IdbAuthorizer
+
+  ####
+  # Cloudfront Proxy
+  ####
+
+  CloudFrontApiDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: Kick-In Media Back-End API Proxy
+        Aliases:
+          - api.kick-in.media
+        IPV6Enabled: true
+        Origins:
+          - DomainName: !Sub "${MediaBackendApi}.execute-api.${AWS::Region}.amazonaws.com"
+            Id: media-backend-api
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+        ViewerCertificate:
+          AcmCertificateArn: arn:aws:acm:us-east-1:990658861879:certificate/9000e290-e8b6-448c-a1e6-6da09a58ee2b
+          SslSupportMethod: sni-only
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            - PUT
+            - PATCH
+            - POST
+            - DELETE
+          DefaultTTL: 0
+          CachePolicyId: !Ref CloudfrontDefaultCachePolicy
+          TargetOriginId: media-backend-api
+          ViewerProtocolPolicy: redirect-to-https
+
+  CloudfrontDefaultCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Comment: Default Media Backend Cache Policy
+        Name: default-media-backend-cache-policy
+        DefaultTTL: 86400
+        MaxTTL: 2678400
+        MinTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          HeadersConfig:
+            HeaderBehavior: whitelist
+            Headers:
+              - Authorization
+          CookiesConfig:
+            CookieBehavior: none
+          EnableAcceptEncodingGzip: False
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  DNSApiRecord4:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontApiDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+      Name: !Sub "api.${DomainName}"
+      HostedZoneId: !Ref HostedZoneId
+      Type: A
+
+  DNSApiRecord6:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontApiDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+      Name: !Sub "api.${DomainName}"
+      HostedZoneId: !Ref HostedZoneId
+      Type: AAAA
