@@ -89,6 +89,76 @@ Resources:
             Method: delete
             ApiId: !Ref MediaBackendApi
 
+  AlbumController:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: media_backend/
+      Handler: album.handle
+      Runtime: python3.9
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'dynamodb:Query'
+                - 'dynamodb:GetItem'
+                - 'dynamodb:UpdateItem'
+                - 'dynamodb:DeleteItem'
+              Resource:
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/kickin-media-data'
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/kickin-media-data/*'
+            - Effect: Allow
+              Action:
+                - 'cloudfront:CreateInvalidation'
+              Resource: '*'
+      Events:
+        GetAlbum:
+          Type: HttpApi
+          Properties:
+            Auth:
+              Authorizer: NONE
+            Path: /album/{id}
+            Method: get
+            ApiId: !Ref MediaBackendApi
+        GetAlbums:
+          Type: HttpApi
+          Properties:
+            Auth:
+              Authorizer: NONE
+            Path: /albums
+            Method: get
+            ApiId: !Ref MediaBackendApi
+        PostAlbum:
+          Type: HttpApi
+          Properties:
+            Auth:
+              ApiKeyRequired: True
+              AuthorizationScopes:
+                - albums:manage
+            Path: /album
+            Method: post
+            ApiId: !Ref MediaBackendApi
+        PutAlbum:
+          Type: HttpApi
+          Properties:
+            Auth:
+              ApiKeyRequired: True
+              AuthorizationScopes:
+                - albums:manage
+            Path: /album/{id}
+            Method: put
+            ApiId: !Ref MediaBackendApi
+        DeleteAlbum:
+          Type: HttpApi
+          Properties:
+            Auth:
+              ApiKeyRequired: True
+              AuthorizationScopes:
+                - albums:manage
+            Path: /album/{id}
+            Method: delete
+            ApiId: !Ref MediaBackendApi
+
   ####
   # The REST API
   ####

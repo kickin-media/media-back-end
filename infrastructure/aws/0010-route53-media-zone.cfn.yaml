@@ -61,3 +61,14 @@ Resources:
       ResourceRecords:
         - _120c7ca5fe0a3137f32cdc74922dc008.fsdcfjjflr.acm-validations.aws.
       TTL: 300
+
+  # Ontwikkelomgeving Jeffrey
+  JeffreyRecords:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: !Sub "beta.${DomainName}."
+      HostedZoneId: !Ref HostedZone
+      Type: CNAME
+      ResourceRecords:
+        - media.vraaghetjeffrey.nl
+      TTL: 300

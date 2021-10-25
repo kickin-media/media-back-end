@@ -30,3 +30,11 @@ Resources:
               KeyType: "RANGE"
           Projection:
             ProjectionType: ALL
+        - IndexName: EntityTypeIndexSK
+          KeySchema:
+            - AttributeName: "EntityType"
+              KeyType: "HASH"
+            - AttributeName: "SK"
+              KeyType: "RANGE"
+          Projection:
+            ProjectionType: ALL
