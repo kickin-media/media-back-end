@@ -1,9 +1,10 @@
+import datetime
 from pydantic import BaseModel
 
 
 class AlbumBase(BaseModel):
     name: str
-    timestamp: int
+    timestamp: datetime.datetime
     event_id: str
 
 

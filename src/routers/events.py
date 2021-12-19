@@ -45,6 +45,8 @@ async def delete_event(event_id: str, db: Session = Depends(get_db)):
     event = crud.event.get_event(db=db, event_id=event_id)
     if event is None:
         raise HTTPException(status_code=404, detail="event_not_found")
+    if len(event.albums) > 0:
+        raise HTTPException(status_code=400, detail="can_only_delete_empty_event")
     action = crud.event.delete_event(db=db, event=event)
     if action:
         raise HTTPException(status_code=200, detail="event_deleted")

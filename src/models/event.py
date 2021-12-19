@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -10,6 +10,6 @@ class Event(Base):
 
     id = Column(String, primary_key=True, index=True)
     name = Column(String)
-    timestamp = Column(Integer)
+    timestamp = Column(DateTime)
 
     albums = relationship(Album, back_populates="event")

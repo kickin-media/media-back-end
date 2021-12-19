@@ -1,3 +1,4 @@
+import datetime
 from pydantic import BaseModel
 from typing import List
 
@@ -6,7 +7,7 @@ from schemas.album import Album
 
 class EventBase(BaseModel):
     name: str
-    timestamp: int
+    timestamp: datetime.datetime
 
 
 class EventCreate(EventBase):

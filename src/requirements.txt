@@ -3,3 +3,4 @@ uvicorn
 sqlalchemy
 pymysql
 alembic
+PyJWT[crypto]

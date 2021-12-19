@@ -4,33 +4,6 @@ Description: 'IAM resources for media tool'
 
 Resources:
 
-  # SAM User
-  AWSSAMUser:
-    Type: AWS::IAM::User
-    Properties:
-      Groups:
-        - !Ref AWSSAMUserGroup
-      UserName: aws-sam-user
-
-  AWSSAMUserGroup:
-    Type: AWS::IAM::Group
-    Properties:
-      GroupName: aws-sam-group
-      ManagedPolicyArns:
-        - !Ref AWSSAMUserPolicy
-
-  AWSSAMUserPolicy:
-    Type: AWS::IAM::ManagedPolicy
-    Properties:
-      ManagedPolicyName: aws-sam-policy
-      Description: SAM Policy - ALL ACCESS
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Action: "*"
-            Resource: "*"
-
   # Deployment User
   DeploymentCICDUser:
     Type: AWS::IAM::User

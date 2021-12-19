@@ -22,7 +22,7 @@ Resources:
         Enabled: true
         Comment: kick-in.media front-end
         Aliases:
-          - !Sub "photos.${DomainName}"
+          - !Sub "photos-dev.${DomainName}"
         IPV6Enabled: true
         Origins:
           - DomainName: !GetAtt S3Bucket.RegionalDomainName
@@ -57,7 +57,7 @@ Resources:
       AliasTarget:
         DNSName: !GetAtt CloudFrontWebDistribution.DomainName
         HostedZoneId: Z2FDTNDATAQYW2
-      Name: !Sub "photos.${DomainName}."
+      Name: !Sub "photos-dev.${DomainName}."
       HostedZoneId: !Ref HostedZoneId
       Type: A
 
@@ -67,7 +67,7 @@ Resources:
       AliasTarget:
         DNSName: !GetAtt CloudFrontWebDistribution.DomainName
         HostedZoneId: Z2FDTNDATAQYW2
-      Name: !Sub "photos.${DomainName}."
+      Name: !Sub "photos-dev.${DomainName}."
       HostedZoneId: !Ref HostedZoneId
       Type: AAAA
 
@@ -75,7 +75,7 @@ Resources:
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: kickin-media-photos
+      BucketName: kickin-media-photos-dev
       WebsiteConfiguration:
         IndexDocument: index.html
       AccessControl: Private
@@ -105,3 +105,20 @@ Resources:
               - !GetAtt S3Bucket.Arn
             Principal:
               CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId
+
+  # Photo Upload User
+  UploadUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: media-upload-user-dev
+      Policies:
+        - PolicyName: 'media-upload-user-policy-dev'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "s3:PutOjbect"
+                  - "s3:PutObjectAcl"
+                Resource:
+                  - !Sub "${S3Bucket.Arn}/upload/*"
