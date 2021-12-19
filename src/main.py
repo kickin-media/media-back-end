@@ -3,22 +3,24 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import variables
 from routers import events, albums
+
+app_environment = os.getenv('ENVIRONMENT', None)
+if app_environment is None:
+    raise Exception("You need to specify an ENVIRONMENT environment variable to start the API.")
+if app_environment not in variables.VALID_APP_ENVIRONMENTS:
+    raise Exception("Invalid ENVIRONMENT value {}, must be one of: {}".format(app_environment, ", ".join(variables.VALID_APP_ENVIRONMENTS)))
 
 api = FastAPI()
 
-# Add CORS headers to the responses of the API
-origins = {
-    'production': [],
-    'staging': [],
-    'development': ['http://localhost:3000'],
-}[os.getenv('ENVIRONMENT', 'production')]
+# Add CORS middleware
 api.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=variables.CORS_ORIGINS[app_environment],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"] if os.getenv('ENVIRONMENT', 'production') == 'development' else []
+    allow_headers=["*"] if app_environment == 'development' else []
 )
 
 # Include routers
