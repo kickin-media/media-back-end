@@ -5,6 +5,10 @@ from sqlalchemy import pool
 
 from alembic import context
 
+import os
+
+db_engine_url = os.getenv('DB_CONNECTION', 'mysql+pymysql://kickin:kickin@localhost/media_backend')
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -18,6 +22,7 @@ fileConfig(config.config_file_name)
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 target_metadata = None
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -37,7 +42,8 @@ def run_migrations_offline():
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    # url = config.get_main_option("sqlalchemy.url")
+    url = db_engine_url
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -56,8 +62,11 @@ def run_migrations_online():
     and associate a connection with the context.
 
     """
+    db_conf = config.get_section(config.config_ini_section)
+    db_conf['sqlalchemy.url'] = db_engine_url
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section),
+        # config.get_section(config.config_ini_section),
+        configuration=db_conf,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
