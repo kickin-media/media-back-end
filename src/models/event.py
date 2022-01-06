@@ -1,25 +1,38 @@
-from sqlalchemy import Column, String, DateTime
-from sqlalchemy.orm import relationship
-from typing import Optional
+import datetime
 
-from database import Base
-from models.album import Album
+from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional, List
+
+from models.album import Album, AlbumReadList
 
 
-class Event(Base):
+class EventBase(SQLModel):
+    name: str
+    timestamp: datetime.datetime
+
+
+class Event(EventBase, table=True):
     __tablename__ = "events"
 
-    id = Column(String, primary_key=True, index=True)
-    name = Column(String)
-    timestamp = Column(DateTime)
+    id: Optional[str] = Field(primary_key=True, index=True)
 
-    albums = relationship(Album, back_populates="event")
+    albums: List[Album] = Relationship(back_populates="event")
 
     @property
-    def no_albums(self):
+    def albums_count(self):
         return len(self.albums)
 
 
-class EventList(Event):
-    albums = Optional[None]
-    no_albums = Optional[None]
+class EventCreate(EventBase):
+    pass
+
+
+class EventReadList(EventBase):
+    id: str
+    albums_count: int
+
+
+class EventReadSingle(EventBase):
+    id: str
+    albums: List[AlbumReadList]
+    albums_count: int

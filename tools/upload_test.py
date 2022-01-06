@@ -2,7 +2,6 @@
 import argparse
 import os
 import requests
-import boto3
 import json
 
 # create parser
@@ -30,7 +29,7 @@ for file in files:
     print("Uploading {}...".format(file))
     upload_data = requests.post('/'.join([args.api, 'photo']), headers=headers)
     upload_data = json.loads(upload_data.content)
-    print("  Created photo: {}".format(upload_data['id']))
+    print("  Created photo: {}".format(upload_data['photo_id']))
     with open(file, 'rb') as fp:
         file_dict = {'file': (file, fp)}
         response = requests.post(upload_data['pre_signed_url']['url'], data=upload_data['pre_signed_url']['fields'],
