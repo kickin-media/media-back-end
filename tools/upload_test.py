@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser(
 # add arguments to the parser
 parser.add_argument("--api", dest='api', help='The hostname for the API.')
 parser.add_argument("--directory", dest='directory', help='The directory to upload.')
+parser.add_argument("--album", dest='album_id', help='The album to upload photos to.')
 
 # parse the arguments
 args = parser.parse_args()
@@ -27,7 +28,7 @@ headers = {
 # upload all photos
 for file in files:
     print("Uploading {}...".format(file))
-    upload_data = requests.post('/'.join([args.api, 'photo']), headers=headers)
+    upload_data = requests.post('/'.join([args.api, 'photo', '']), headers=headers)
     upload_data = json.loads(upload_data.content)
     print("  Created photo: {}".format(upload_data['photo_id']))
     with open(file, 'rb') as fp:
@@ -35,4 +36,7 @@ for file in files:
         response = requests.post(upload_data['pre_signed_url']['url'], data=upload_data['pre_signed_url']['fields'],
                                  files=file_dict)
         print("  Uploaded photo: {}".format(response.status_code))
+    album_data = requests.put('/'.join([args.api, 'photo', upload_data['photo_id'], 'albums']), headers=headers,
+                              data=json.dumps([args.album_id]))
+    print("  Albums set: {}".format(album_data.status_code))
     print("Done!")

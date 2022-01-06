@@ -116,14 +116,14 @@ def process_photo(db_photo: Photo):
 
         image = original_image.copy()
 
+        watermarks_dx = image.size[0] // 25
+        watermarks_dy = image.size[1] // 25
+
         # Create watermarked image.
         try:
             watermark = Image.open("./config/watermark.png")
             watermark = watermark.convert("RGBA")
             image = image.convert("RGBA")
-
-            watermarks_dx = image.size[0] // 25
-            watermarks_dy = image.size[1] // 25
 
             watermark.thumbnail((image.size[0] // 5, image.size[1] // 5))
             watermark_logo_x = int(image.size[0] - watermarks_dx - watermark.size[0])

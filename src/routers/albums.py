@@ -16,7 +16,8 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=List[AlbumReadList])
+@router.get("/", response_model=List[AlbumReadList],
+            dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
 async def list_albums(db: Session = Depends(get_db)):
     albums = db.exec(select(Album)).all()
     return albums
