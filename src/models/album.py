@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class AlbumBase(SQLModel):
     name: str
     timestamp: datetime.datetime
+    release_time: Optional[datetime.datetime] = None
     event_id: str = Field(foreign_key="events.id")
 
 
@@ -33,6 +34,10 @@ class Album(AlbumBase, table=True):
 
 class AlbumCreate(AlbumBase):
     pass
+
+
+class AlbumUpdate(AlbumBase):
+    event_id: Optional[str] = None
 
 
 class AlbumReadList(AlbumBase):

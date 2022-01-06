@@ -1,3 +1,5 @@
+import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from auth.auth_bearer import JWTBearer
 
@@ -5,7 +7,7 @@ from database import get_db
 from sqlmodel import Session, select
 from typing import List
 
-from models.album import Album, AlbumCreate, AlbumReadList, AlbumReadSingle, AlbumSetSecretStatus
+from models.album import Album, AlbumCreate, AlbumUpdate, AlbumReadList, AlbumReadSingle, AlbumSetSecretStatus
 from models.event import Event
 
 import uuid
@@ -26,14 +28,24 @@ async def list_albums(db: Session = Depends(get_db)):
 def get_album(album_id: str, db: Session = Depends(get_db),
               include_hidden: bool = False, provided_secret: str = None):
     album = db.get(Album, album_id)
+
     if album is None:
         raise HTTPException(status_code=404, detail="album_not_found")
+
+    # Determine if we can show the photos in this album if it's a timed album.
+    if album.release_time is not None:
+        if not include_hidden:
+            if datetime.datetime.utcnow() < album.release_time:
+                album.photos = []
+
+    # Determine if we can show this album at all if it's a hidden album.
     if album.hidden_secret is not None:
         if include_hidden:
             return album
         if provided_secret is not None and provided_secret == album.hidden_secret:
             return album
         raise HTTPException(status_code=404, detail="album_not_found")
+
     return album
 
 
@@ -69,25 +81,24 @@ async def create_album(album: AlbumCreate, db: Session = Depends(get_db)):
 
 @router.put("/{album_id}", response_model=Album,
             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
-async def update_album(album_id: str, album_data: AlbumCreate, db: Session = Depends(get_db)):
-    album_data = album_data.dict()
-    album = db.get(Album, album_id)
+async def update_album(album_id: str, album: AlbumUpdate, db: Session = Depends(get_db)):
+    db_album = db.get(Album, album_id)
 
-    if album is None:
+    if db_album is None:
         raise HTTPException(status_code=404, detail="album_not_found")
 
-    event = db.get(Event, album_data['event_id'])
+    event = db.get(Event, album.event_id)
     if event is None:
         raise HTTPException(status_code=404, detail="event_not_found")
 
-    for key, value in album_data.items():
-        setattr(album, key, value)
+    for key, value in album.dict().items():
+        setattr(db_album, key, value)
 
-    db.add(album)
+    db.add(db_album)
     db.commit()
-    db.refresh(album)
+    db.refresh(db_album)
 
-    return album
+    return db_album
 
 
 @router.put("/{album_id}/hidden", response_model=Album,
