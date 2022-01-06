@@ -20,6 +20,7 @@ class Album(AlbumBase, table=True):
     __tablename__ = "albums"
 
     id: Optional[str] = Field(default=None, primary_key=True, index=True)
+    hidden_secret: Optional[str] = None
 
     event: "Event" = Relationship(back_populates="albums")
 
@@ -52,3 +53,8 @@ class AlbumReadSingle(AlbumBase):
 
     event: Event
     # event: "EventReadList"
+
+
+class AlbumSetSecretStatus(SQLModel):
+    is_secret: bool
+    refresh_secret: bool

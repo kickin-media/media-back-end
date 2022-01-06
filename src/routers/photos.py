@@ -67,7 +67,7 @@ async def reprocess_photo(photo_id: str,
     if photo is None:
         raise HTTPException(status_code=404, detail="photo_not_found")
 
-    if photo.author.id != auth_data['sub'] and 'photos:reprocess_other' not in auth_data['permissions']:
+    if photo.author.id != auth_data['sub'] and 'photos:manage_other' not in auth_data['permissions']:
         raise HTTPException(status_code=403, detail="can_only_reprocess_own_photos")
 
     process_uploaded_photo.process_photo(db_photo=photo)

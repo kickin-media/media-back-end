@@ -29,10 +29,7 @@ class EventCreate(EventBase):
 
 class EventReadList(EventBase):
     id: str
-    albums_count: int
 
 
 class EventReadSingle(EventBase):
     id: str
-    albums: List[AlbumReadList]
-    albums_count: int

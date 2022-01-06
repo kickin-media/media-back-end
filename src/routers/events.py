@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from typing import List
 
 from models.event import Event, EventCreate, EventReadList, EventReadSingle
+from models.album import AlbumReadList
 
 import uuid
 
@@ -27,6 +28,31 @@ async def get_event(event_id: str, db: Session = Depends(get_db)):
     if event is None:
         raise HTTPException(status_code=404, detail="event_not_found")
     return event
+
+
+def get_event_albums(event_id: str, db: Session, include_hidden: bool = False):
+    event = db.get(Event, event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="event_not_found")
+
+    albums = []
+    for album in event.albums:
+        if album.hidden_secret is not None and not include_hidden:
+            continue
+        albums.append(album)
+
+    return albums
+
+
+@router.get("/{event_id}/albums", response_model=List[AlbumReadList])
+async def get_event_albums_unauthenticated(event_id: str, db: Session = Depends(get_db)):
+    return get_event_albums(event_id=event_id, db=db)
+
+
+@router.get("/{event_id}/albums/authenticated", response_model=List[AlbumReadList])
+async def get_event_albums_authenticated(event_id: str, db: Session = Depends(get_db), auth_data=Depends(JWTBearer())):
+    include_hidden = 'albums:read_hidden' in auth_data['permissions']
+    return get_event_albums(event_id=event_id, db=db, include_hidden=include_hidden)
 
 
 @router.post("/", response_model=Event, dependencies=[Depends(JWTBearer(required_permissions=['events:manage']))])
