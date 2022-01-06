@@ -1,5 +1,7 @@
 import datetime
 from pydantic import BaseModel
+from typing import List
+from schemas.photo import Photo
 
 
 class AlbumBase(BaseModel):
@@ -14,6 +16,8 @@ class AlbumCreate(AlbumBase):
 
 class Album(AlbumBase):
     id: str
+    photos: List[Photo]
+    no_photos: int
 
     class Config:
         orm_mode = True

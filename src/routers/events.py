@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from auth.auth_bearer import JWTBearer
+
+from database import sqlmodel_session
+from sqlmodel import select
 from typing import List
 
-from dependencies import get_db
-import crud.event
-from schemas.event import Event, EventCreate
+from sqlmodels.event import Event, EventCreate
+
+import uuid
 
 router = APIRouter(
     prefix="/event",
@@ -13,42 +16,67 @@ router = APIRouter(
 
 
 @router.get("/", response_model=List[Event])
-async def list_events(db: Session = Depends(get_db)):
-    return crud.event.get_events(db=db)
+async def list_events():
+    with sqlmodel_session:
+        events = sqlmodel_session.exec(select(Event)).all()
+        return events
 
 
 @router.get("/{event_id}", response_model=Event)
-async def get_event(event_id: str, db: Session = Depends(get_db)):
-    event = crud.event.get_event(db=db, event_id=event_id)
-    if event is None:
-        raise HTTPException(status_code=404, detail="event_not_found")
-    return event
+async def get_event(event_id: str):
+    with sqlmodel_session:
+        event = sqlmodel_session.get(Event, event_id)
+        if event is None:
+            raise HTTPException(status_code=404, detail="event_not_found")
+        return event
 
 
-@router.post("/", response_model=Event)
-async def create_event(event: EventCreate, db: Session = Depends(get_db)):
-    event = crud.event.create_event(db=db, event=event)
-    return event
+@router.post("/", response_model=Event, dependencies=[Depends(JWTBearer(required_permissions=['events:manage']))])
+async def create_event(event: EventCreate):
+    event = Event.from_orm(event)
+
+    event_id = str(uuid.uuid4())
+    event.id = event_id
+
+    with sqlmodel_session:
+        sqlmodel_session.add(event)
+        sqlmodel_session.commit()
+        sqlmodel_session.refresh(event)
+        return event
 
 
-@router.put("/{event_id}", response_model=Event)
-async def update_event(event_id: str, event_data: EventCreate, db: Session = Depends(get_db)):
-    event = crud.event.get_event(db=db, event_id=event_id)
-    if event is None:
-        raise HTTPException(status_code=404, detail="event_not_found")
-    new_event = crud.event.update_event(db=db, event=event, event_data=event_data)
-    return new_event
+@router.put("/{event_id}", response_model=Event,
+            dependencies=[Depends(JWTBearer(required_permissions=['events:manage']))])
+async def update_event(event_id: str, event_data: EventCreate):
+    with sqlmodel_session:
+        event_data = event_data.dict()
+        event = sqlmodel_session.get(Event, event_id)
+
+        if event is None:
+            raise HTTPException(status_code=404, detail="event_not_found")
+
+        for key, value in event_data.items():
+            setattr(event, key, value)
+
+        sqlmodel_session.add(event)
+        sqlmodel_session.commit()
+        sqlmodel_session.refresh(event)
+
+        return event
 
 
-@router.delete("/{event_id}")
-async def delete_event(event_id: str, db: Session = Depends(get_db)):
-    event = crud.event.get_event(db=db, event_id=event_id)
-    if event is None:
-        raise HTTPException(status_code=404, detail="event_not_found")
-    if len(event.albums) > 0:
-        raise HTTPException(status_code=400, detail="can_only_delete_empty_event")
-    action = crud.event.delete_event(db=db, event=event)
-    if action:
+@router.delete("/{event_id}", dependencies=[Depends(JWTBearer(required_permissions=['events:manage']))])
+async def delete_event(event_id: str):
+    with sqlmodel_session:
+        event = sqlmodel_session.get(Event, event_id)
+
+        if event is None:
+            raise HTTPException(status_code=404, detail="event_not_found")
+
+        if len(event.albums) > 0:
+            raise HTTPException(status_code=400, detail="can_only_delete_empty_event")
+
+        sqlmodel_session.delete(event)
+        sqlmodel_session.commit()
+
         raise HTTPException(status_code=200, detail="event_deleted")
-    else:
-        raise HTTPException(status_code=500, detail="internal_error")

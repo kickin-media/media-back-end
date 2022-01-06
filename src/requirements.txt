@@ -1,6 +1,10 @@
 fastapi
 uvicorn
 sqlalchemy
+sqlmodel
 pymysql
 alembic
 PyJWT[crypto]
+boto3
+fastapi-utils
+Pillow

@@ -14,9 +14,13 @@ class EventCreate(EventBase):
     pass
 
 
-class Event(EventBase):
+class EventList(EventBase):
     id: str
-    albums: List[Album] = []
+
+
+class Event(EventList):
+    no_albums: int
+    albums: List[Album]
 
     class Config:
         orm_mode = True

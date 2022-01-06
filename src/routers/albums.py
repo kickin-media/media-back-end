@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from auth.auth_bearer import JWTBearer
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -26,7 +27,7 @@ async def get_album(album_id: str, db: Session = Depends(get_db)):
     return album
 
 
-@router.post("/", response_model=Album)
+@router.post("/", response_model=Album, dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
 async def create_album(album: AlbumCreate, db: Session = Depends(get_db)):
     event = crud.event.get_event(db=db, event_id=album.event_id)
     if event is None:
@@ -36,7 +37,7 @@ async def create_album(album: AlbumCreate, db: Session = Depends(get_db)):
     return album
 
 
-@router.put("/{album_id}", response_model=Album)
+@router.put("/{album_id}", response_model=Album, dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
 async def update_album(album_id: str, album_data: AlbumCreate, db: Session = Depends(get_db)):
     album = crud.album.get_album(db=db, album_id=album_id)
     if album is None:
@@ -50,7 +51,7 @@ async def update_album(album_id: str, album_data: AlbumCreate, db: Session = Dep
     return new_album
 
 
-@router.delete("/{album_id}")
+@router.delete("/{album_id}", dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
 async def delete_album(album_id: str, db: Session = Depends(get_db)):
     album = crud.album.get_album(db=db, album_id=album_id)
     if album is None:

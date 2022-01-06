@@ -15,19 +15,31 @@ def decode_jwt(token: str) -> dict:
 
 
 class JWTBearer(HTTPBearer):
-    def __init__(self, auto_error: bool = True):
+    _required_permissions = None
+
+    def __init__(self, auto_error: bool = True, required_permissions: list = None):
+        self._required_permissions = required_permissions
         super(JWTBearer, self).__init__(auto_error=auto_error)
 
     async def __call__(self, request: Request):
         credentials: HTTPAuthorizationCredentials = await super(JWTBearer, self).__call__(request)
         if credentials:
             if not credentials.scheme == "Bearer":
-                raise HTTPException(status_code=403, detail="Invalid authentication scheme.")
+                raise HTTPException(status_code=403, detail="invalid_auth_scheme")
             if not self.verify_jwt(credentials.credentials):
-                raise HTTPException(status_code=403, detail="Invalid token or expired token.")
-            return decode_jwt(credentials.credentials)
+                raise HTTPException(status_code=403, detail="token_invalid_or_expired")
+
+            decoded_jwt = decode_jwt(credentials.credentials)
+
+            # Verify required scopes.
+            if self._required_permissions is not None:
+                for permission in self._required_permissions:
+                    if permission not in decoded_jwt['permissions']:
+                        raise HTTPException(status_code=403, detail="missing_permission_{}".format(permission))
+
+            return decoded_jwt
         else:
-            raise HTTPException(status_code=403, detail="Invalid authorization code.")
+            raise HTTPException(status_code=403, detail="invalid_auth_code")
 
     def verify_jwt(self, jwtoken: str) -> bool:
         isTokenValid: bool = False

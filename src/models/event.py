@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, String, DateTime
 from sqlalchemy.orm import relationship
+from typing import Optional
 
 from database import Base
 from models.album import Album
@@ -13,3 +14,12 @@ class Event(Base):
     timestamp = Column(DateTime)
 
     albums = relationship(Album, back_populates="event")
+
+    @property
+    def no_albums(self):
+        return len(self.albums)
+
+
+class EventList(Event):
+    albums = Optional[None]
+    no_albums = Optional[None]

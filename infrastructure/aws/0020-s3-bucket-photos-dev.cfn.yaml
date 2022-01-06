@@ -99,6 +99,14 @@ Resources:
             Principal:
               CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId
           - Action:
+              - s3:GetObject
+            Effect: Deny
+            Resource:
+              - !Sub "${S3Bucket.Arn}/originals/*"
+              - !Sub "${S3Bucket.Arn}/uploads/*"
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId
+          - Action:
               - s3:ListBucket
             Effect: Allow
             Resource:
@@ -106,7 +114,7 @@ Resources:
             Principal:
               CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId
 
-  # Photo Upload User
+  # Photo Tool User
   UploadUser:
     Type: AWS::IAM::User
     Properties:
@@ -118,7 +126,14 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - "s3:PutOjbect"
-                  - "s3:PutObjectAcl"
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:HeadObject"
+                  - "s3:DeleteObject"
                 Resource:
-                  - !Sub "${S3Bucket.Arn}/upload/*"
+                  - !Sub "${S3Bucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - "s3:ListBucket"
+                Resource:
+                  - !Sub "${S3Bucket.Arn}"

@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import update
 
 import models.album as model
@@ -12,7 +12,7 @@ def get_albums(db: Session, skip: int = 0, limit: int = 100):
 
 
 def get_album(db: Session, album_id: str):
-    return db.query(model.Album).filter(model.Album.id == album_id).first()
+    return db.query(model.Album).filter(model.Album.id == album_id).options(joinedload(model.Album.photos)).first()
 
 
 def create_album(db: Session, album: schema.AlbumCreate):
