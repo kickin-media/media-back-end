@@ -1,10 +1,13 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlmodel import create_engine as create_sqlmodel_engine
+from sqlmodel import Session
 
 from variables import DB_CONNECTION_STRING
 
-engine = create_engine(DB_CONNECTION_STRING)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine = create_sqlmodel_engine(DB_CONNECTION_STRING)
 
-Base = declarative_base()
+db_session = Session(engine)
+
+
+def get_db():
+    with Session(engine) as session:
+        yield session
