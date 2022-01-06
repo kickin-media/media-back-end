@@ -36,10 +36,6 @@ class AlbumCreate(AlbumBase):
     pass
 
 
-class AlbumUpdate(AlbumBase):
-    event_id: Optional[str] = None
-
-
 class AlbumReadList(AlbumBase):
     id: str
     photos_count: int

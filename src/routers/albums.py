@@ -7,7 +7,7 @@ from database import get_db
 from sqlmodel import Session, select
 from typing import List
 
-from models.album import Album, AlbumCreate, AlbumUpdate, AlbumReadList, AlbumReadSingle, AlbumSetSecretStatus
+from models.album import Album, AlbumCreate, AlbumReadList, AlbumReadSingle, AlbumSetSecretStatus
 from models.event import Event
 
 import uuid
@@ -81,7 +81,7 @@ async def create_album(album: AlbumCreate, db: Session = Depends(get_db)):
 
 @router.put("/{album_id}", response_model=Album,
             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
-async def update_album(album_id: str, album: AlbumUpdate, db: Session = Depends(get_db)):
+async def update_album(album_id: str, album: AlbumCreate, db: Session = Depends(get_db)):
     db_album = db.get(Album, album_id)
 
     if db_album is None:
