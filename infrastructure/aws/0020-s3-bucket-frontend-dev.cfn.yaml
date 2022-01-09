@@ -20,7 +20,7 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-        Comment: kick-in.media front-end
+        Comment: kick-in.media front-end (dev)
         Aliases:
           - dev.kick-in.media
         IPV6Enabled: true
@@ -30,6 +30,11 @@ Resources:
             S3OriginConfig:
               OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOAI}"
         DefaultRootObject: index.html
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 60
+            ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
         ViewerCertificate:
           AcmCertificateArn: arn:aws:acm:us-east-1:990658861879:certificate/9000e290-e8b6-448c-a1e6-6da09a58ee2b
           SslSupportMethod: sni-only
@@ -78,6 +83,12 @@ Resources:
       BucketName: kickin-media-frontend-dev
       WebsiteConfiguration:
         IndexDocument: index.html
+        RoutingRules:
+          - RoutingRuleCondition:
+              HttpErrorCodeReturnedEquals: '404'
+            RedirectRule:
+              HostName: dev.kick-in.media
+              ReplaceKeyPrefixWith: "#!/"
       AccessControl: Private
       PublicAccessBlockConfiguration:
         BlockPublicAcls: True

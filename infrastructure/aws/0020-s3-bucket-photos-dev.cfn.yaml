@@ -20,7 +20,7 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-        Comment: kick-in.media front-end
+        Comment: kick-in.media photos (dev)
         Aliases:
           - !Sub "photos-dev.${DomainName}"
         IPV6Enabled: true

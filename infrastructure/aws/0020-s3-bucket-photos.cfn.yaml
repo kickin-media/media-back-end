@@ -20,7 +20,7 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-        Comment: kick-in.media front-end
+        Comment: kick-in.media photos
         Aliases:
           - !Sub "photos.${DomainName}"
         IPV6Enabled: true
@@ -105,3 +105,27 @@ Resources:
               - !GetAtt S3Bucket.Arn
             Principal:
               CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId
+
+  # Photo Tool User
+  UploadUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: media-upload-user
+      Policies:
+        - PolicyName: 'media-upload-user-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:HeadObject"
+                  - "s3:DeleteObject"
+                Resource:
+                  - !Sub "${S3Bucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - "s3:ListBucket"
+                Resource:
+                  - !Sub "${S3Bucket.Arn}"
