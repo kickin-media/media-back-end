@@ -7,8 +7,10 @@ from database import get_db
 from sqlmodel import Session, select
 from typing import List
 
-from models.album import Album, AlbumCreate, AlbumReadList, AlbumReadSingle, AlbumSetSecretStatus
+from models.album import Album, AlbumCreate, AlbumReadList, AlbumReadSingle, AlbumSetSecretStatus, AlbumSetCover, \
+    AlbumReadSingleStub
 from models.event import Event
+from models.photo import Photo
 
 import uuid
 
@@ -79,6 +81,25 @@ async def create_album(album: AlbumCreate, db: Session = Depends(get_db)):
     return album
 
 
+@router.post("/{album_id}/empty", response_model=AlbumReadSingleStub,
+             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
+async def empty_album(album_id: str, db: Session = Depends(get_db)):
+    db_album = db.get(Album, album_id)
+
+    if db_album is None:
+        raise HTTPException(status_code=404, detail="album_not_found")
+
+    db_album_photos = db_album.photos
+    for photo in db_album_photos:
+        photo.albums.remove(db_album)
+        db.add(photo)
+
+    db.commit()
+    db.refresh(db_album)
+
+    return db_album
+
+
 @router.put("/{album_id}", response_model=Album,
             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
 async def update_album(album_id: str, album: AlbumCreate, db: Session = Depends(get_db)):
@@ -101,7 +122,7 @@ async def update_album(album_id: str, album: AlbumCreate, db: Session = Depends(
     return db_album
 
 
-@router.put("/{album_id}/hidden", response_model=Album,
+@router.put("/{album_id}/hidden", response_model=AlbumReadSingleStub,
             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
 async def update_album_hidden_status(album_id: str, hidden_status: AlbumSetSecretStatus,
                                      db: Session = Depends(get_db)):
@@ -116,6 +137,36 @@ async def update_album_hidden_status(album_id: str, hidden_status: AlbumSetSecre
             album.hidden_secret = album_secret
     else:
         album.hidden_secret = None
+
+    db.add(album)
+    db.commit()
+    db.refresh(album)
+
+    return album
+
+
+@router.put("/{album_id}/cover", response_model=AlbumReadSingleStub,
+            dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
+async def update_album_cover(album_id: str, cover_info: AlbumSetCover,
+                             db: Session = Depends(get_db)):
+    album = db.get(Album, album_id)
+    if album is None:
+        raise HTTPException(status_code=404, detail="album_not_found")
+
+    if cover_info.photo_id is None:
+        album.cover = None
+
+    else:
+        photo = db.get(Photo, cover_info.photo_id)
+        if photo is None:
+            raise HTTPException(status_code=404, detail="photo_not_found")
+
+        if not photo.upload_processed:
+            raise HTTPException(status_code=500, detail="photo_not_processed")
+
+        if album not in photo.albums:
+            raise HTTPException(status_code=500, detail="photo_not_in_album")
+        album.cover = photo
 
     db.add(album)
     db.commit()

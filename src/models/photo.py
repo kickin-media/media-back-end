@@ -15,6 +15,13 @@ class PhotoBase(SQLModel):
     pass
 
 
+class PhotoImgUrls(SQLModel):
+    original: str
+    large: str
+    medium: str
+    small: str
+
+
 class Photo(PhotoBase, table=True):
     __tablename__ = "photos"
 
@@ -36,7 +43,7 @@ class Photo(PhotoBase, table=True):
         filtered_exif = {}
         for k, v in json.loads(self.exif_data).items():
             if 'serial' in k:
-                continueq
+                continue
             filtered_exif[k] = v
         return filtered_exif
 
@@ -55,25 +62,18 @@ class Photo(PhotoBase, table=True):
         return url_dict
 
 
-class PhotoImgUrls(SQLModel):
-    original: str
-    large: str
-    medium: str
-    small: str
-
-
 class PhotoReadList(PhotoBase):
     id: str
     timestamp: Optional[datetime.datetime]
     img_urls: PhotoImgUrls
 
 
-class PhotoReadSingle(PhotoBase):
-    id: str
-    timestamp: Optional[datetime.datetime]
-    exif: dict
-    img_urls: PhotoImgUrls
+class PhotoReadSingleStub(PhotoReadList):
     author: Author
+
+
+class PhotoReadSingle(PhotoReadSingleStub):
+    exif: dict
 
     # This should be fixed later on, but for now it throws an error I haven't yet been able to solve.
     class Album(SQLModel):

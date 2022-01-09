@@ -3,7 +3,7 @@ import datetime
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
 
-from models.album import Album, AlbumReadList
+from models.album import Album, AlbumReadList, AlbumReadSingleStub
 
 
 class EventBase(SQLModel):

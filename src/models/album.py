@@ -3,7 +3,7 @@ import datetime
 from sqlmodel import SQLModel, Field, Relationship
 from typing import TYPE_CHECKING, Optional, List
 
-from models.photo import Photo, PhotoReadList
+from models.photo import Photo, PhotoReadList, PhotoReadSingle, PhotoReadSingleStub
 from models.albumphotolink import AlbumPhotoLink
 
 if TYPE_CHECKING:
@@ -15,6 +15,7 @@ class AlbumBase(SQLModel):
     timestamp: datetime.datetime
     release_time: Optional[datetime.datetime] = None
     event_id: str = Field(foreign_key="events.id")
+    cover_id: str = Field(foreign_key="photos.id", nullable=True, default=None)
 
 
 class Album(AlbumBase, table=True):
@@ -24,12 +25,21 @@ class Album(AlbumBase, table=True):
     hidden_secret: Optional[str] = None
 
     event: "Event" = Relationship(back_populates="albums")
+    cover: Photo = Relationship()
 
     photos: List[Photo] = Relationship(back_populates="albums", link_model=AlbumPhotoLink)
 
     @property
     def photos_count(self):
         return len(self.photos)
+
+    @property
+    def cover_photo(self):
+        if len(self.photos) == 0:
+            return None
+        elif self.cover:
+            return self.cover
+        return self.photos[0]
 
 
 class AlbumCreate(AlbumBase):
@@ -39,13 +49,10 @@ class AlbumCreate(AlbumBase):
 class AlbumReadList(AlbumBase):
     id: str
     photos_count: int
+    cover_photo: Optional[PhotoReadSingleStub]
 
 
-class AlbumReadSingle(AlbumBase):
-    id: str
-    photos: List[PhotoReadList]
-    photos_count: int
-
+class AlbumReadSingleStub(AlbumReadList):
     # This should be fixed later on, but for now it throws an error I haven't yet been able to solve.
     class Event(SQLModel):
         id: str
@@ -56,6 +63,14 @@ class AlbumReadSingle(AlbumBase):
     # event: "EventReadList"
 
 
+class AlbumReadSingle(AlbumReadSingleStub):
+    photos: List[PhotoReadSingleStub]
+
+
 class AlbumSetSecretStatus(SQLModel):
     is_secret: bool
     refresh_secret: bool
+
+
+class AlbumSetCover(SQLModel):
+    photo_id: Optional[str]

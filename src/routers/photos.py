@@ -138,6 +138,14 @@ async def replace_albums(photo_id: str,
             raise HTTPException(status_code=404, detail="album_not_found_{}".format(album_id))
         albums.append(album)
 
+    for album in photo.albums:
+        if album.id not in album_ids:
+            if album.cover_id == photo.id:
+                album.cover_id = None
+                db.add(album)
+                db.commit()
+                db.refresh(album)
+
     photo.albums = albums
     db.add(photo)
     db.commit()
