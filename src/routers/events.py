@@ -31,7 +31,7 @@ async def get_event(event_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{event_id}/albums", response_model=List[AlbumReadList])
-async def get_event_albums_authenticated(event_id: str, db: Session = Depends(get_db),
+async def get_event_albums(event_id: str, db: Session = Depends(get_db),
                                          auth_data=Depends(JWTBearer(auto_error=False))):
     include_hidden = auth_data and 'albums:read_hidden' in auth_data['permissions']
 
