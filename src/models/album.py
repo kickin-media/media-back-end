@@ -65,6 +65,7 @@ class AlbumReadSingleStub(AlbumReadList):
 
 class AlbumReadSingle(AlbumReadSingleStub):
     photos: List[PhotoReadSingleStub]
+    hidden_secret: Optional[str]
 
 
 class AlbumSetSecretStatus(SQLModel):

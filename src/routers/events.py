@@ -30,7 +30,11 @@ async def get_event(event_id: str, db: Session = Depends(get_db)):
     return event
 
 
-def get_event_albums(event_id: str, db: Session, include_hidden: bool = False):
+@router.get("/{event_id}/albums", response_model=List[AlbumReadList])
+async def get_event_albums_authenticated(event_id: str, db: Session = Depends(get_db),
+                                         auth_data=Depends(JWTBearer(auto_error=False))):
+    include_hidden = auth_data and 'albums:read_hidden' in auth_data['permissions']
+
     event = db.get(Event, event_id)
     if event is None:
         raise HTTPException(status_code=404, detail="event_not_found")
@@ -42,17 +46,6 @@ def get_event_albums(event_id: str, db: Session, include_hidden: bool = False):
         albums.append(album)
 
     return albums
-
-
-@router.get("/{event_id}/albums", response_model=List[AlbumReadList])
-async def get_event_albums_unauthenticated(event_id: str, db: Session = Depends(get_db)):
-    return get_event_albums(event_id=event_id, db=db)
-
-
-@router.get("/{event_id}/albums/authenticated", response_model=List[AlbumReadList])
-async def get_event_albums_authenticated(event_id: str, db: Session = Depends(get_db), auth_data=Depends(JWTBearer())):
-    include_hidden = 'albums:read_hidden' in auth_data['permissions']
-    return get_event_albums(event_id=event_id, db=db, include_hidden=include_hidden)
 
 
 @router.post("/", response_model=Event, dependencies=[Depends(JWTBearer(required_permissions=['events:manage']))])

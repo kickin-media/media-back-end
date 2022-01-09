@@ -16,9 +16,11 @@ def decode_jwt(token: str) -> dict:
 
 class JWTBearer(HTTPBearer):
     _required_permissions = None
+    _auto_error = None
 
     def __init__(self, auto_error: bool = True, required_permissions: list = None):
         self._required_permissions = required_permissions
+        self.auto_error = auto_error
         super(JWTBearer, self).__init__(auto_error=auto_error)
 
     async def __call__(self, request: Request):
@@ -39,7 +41,10 @@ class JWTBearer(HTTPBearer):
 
             return decoded_jwt
         else:
-            raise HTTPException(status_code=403, detail="invalid_auth_code")
+            if self._auto_error:
+                raise HTTPException(status_code=403, detail="invalid_auth_code")
+            else:
+                return None
 
     def verify_jwt(self, jwtoken: str) -> bool:
         isTokenValid: bool = False

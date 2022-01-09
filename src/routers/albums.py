@@ -27,8 +27,11 @@ async def list_albums(db: Session = Depends(get_db)):
     return albums
 
 
-def get_album(album_id: str, db: Session = Depends(get_db),
-              include_hidden: bool = False, provided_secret: str = None):
+@router.get("/{album_id}", response_model=AlbumReadSingle)
+async def get_album(album_id: str, secret: str = None, db: Session = Depends(get_db),
+                    auth_data=Depends(JWTBearer(auto_error=False))):
+    include_hidden = auth_data and 'albums:read_hidden' in auth_data['permissions']
+
     album = db.get(Album, album_id)
 
     if album is None:
@@ -44,23 +47,11 @@ def get_album(album_id: str, db: Session = Depends(get_db),
     if album.hidden_secret is not None:
         if include_hidden:
             return album
-        if provided_secret is not None and provided_secret == album.hidden_secret:
+        if secret is not None and secret == album.hidden_secret:
             return album
         raise HTTPException(status_code=404, detail="album_not_found")
 
     return album
-
-
-@router.get("/{album_id}", response_model=AlbumReadSingle)
-async def get_album_unauthenticated(album_id: str, secret: str = None, db: Session = Depends(get_db)):
-    return get_album(album_id=album_id, db=db, provided_secret=secret)
-
-
-@router.get("/{album_id}/authenticated", response_model=AlbumReadSingle)
-async def get_album_authenticated(album_id: str, secret: str = None, db: Session = Depends(get_db),
-                                  auth_data=Depends(JWTBearer())):
-    include_hidden = 'albums:read_hidden' in auth_data['permissions']
-    return get_album(album_id=album_id, db=db, include_hidden=include_hidden, provided_secret=secret)
 
 
 @router.post("/", response_model=Album, dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
