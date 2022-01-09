@@ -7,7 +7,7 @@ from database import get_db
 from sqlmodel import Session
 from typing import List
 
-from models.photo import Photo, OriginalPhotoDownload, PhotoUploadResponse, PhotoReadSingle
+from models.photo import Photo, OriginalPhotoDownload, PhotoUploadResponse, PhotoReadSingle, PhotoReadSingleStub
 from models.author import Author
 from models.album import Album
 
@@ -118,7 +118,7 @@ async def create_upload(num_uploads: int = 1,
     return response_list
 
 
-@router.put("/{photo_id}/albums", response_model=Photo)
+@router.put("/{photo_id}/albums", response_model=PhotoReadSingleStub)
 async def replace_albums(photo_id: str,
                          album_ids: List[str],
                          db: Session = Depends(get_db),

@@ -81,25 +81,6 @@ async def create_album(album: AlbumCreate, db: Session = Depends(get_db)):
     return album
 
 
-@router.post("/{album_id}/empty", response_model=AlbumReadSingleStub,
-             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
-async def empty_album(album_id: str, db: Session = Depends(get_db)):
-    db_album = db.get(Album, album_id)
-
-    if db_album is None:
-        raise HTTPException(status_code=404, detail="album_not_found")
-
-    db_album_photos = db_album.photos
-    for photo in db_album_photos:
-        photo.albums.remove(db_album)
-        db.add(photo)
-
-    db.commit()
-    db.refresh(db_album)
-
-    return db_album
-
-
 @router.put("/{album_id}", response_model=Album,
             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
 async def update_album(album_id: str, album: AlbumCreate, db: Session = Depends(get_db)):
@@ -173,6 +154,25 @@ async def update_album_cover(album_id: str, cover_info: AlbumSetCover,
     db.refresh(album)
 
     return album
+
+
+@router.delete("/{album_id}/empty", response_model=AlbumReadSingleStub,
+               dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
+async def empty_album(album_id: str, db: Session = Depends(get_db)):
+    db_album = db.get(Album, album_id)
+
+    if db_album is None:
+        raise HTTPException(status_code=404, detail="album_not_found")
+
+    db_album_photos = db_album.photos
+    for photo in db_album_photos:
+        photo.albums.remove(db_album)
+        db.add(photo)
+
+    db.commit()
+    db.refresh(db_album)
+
+    return db_album
 
 
 @router.delete("/{album_id}", dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])

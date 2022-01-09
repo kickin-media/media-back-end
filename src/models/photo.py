@@ -80,6 +80,7 @@ class PhotoReadSingle(PhotoReadSingleStub):
         id: str
         name: str
         timestamp: datetime.datetime
+        cover_photo: Optional[PhotoReadSingleStub]
 
     albums: List[Album]
     # albums: List["AlbumReadList"]
