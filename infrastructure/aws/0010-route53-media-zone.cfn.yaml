@@ -50,6 +50,8 @@ Resources:
         - 0 iodef "mailto:abuse-caa-kickin-media@jonathanj.nl"
         - 0 issue "amazonaws.com"
         - 0 issuewild "amazonaws.com"
+        - 0 issue "letsencrypt.org"
+        - 0 issuewild "letsencrypt.org"
 
   # ACM Validation Records
   AcmValidationRecords:
@@ -62,13 +64,13 @@ Resources:
         - _120c7ca5fe0a3137f32cdc74922dc008.fsdcfjjflr.acm-validations.aws.
       TTL: 300
 
-  # Ontwikkelomgeving Jeffrey
-  JeffreyRecords:
+  # Development Environment
+  DevelopmentApi:
     Type: AWS::Route53::RecordSet
     Properties:
-      Name: !Sub "beta.${DomainName}."
+      Name: !Sub "dev.api.${DomainName}."
       HostedZoneId: !Ref HostedZone
       Type: CNAME
       ResourceRecords:
-        - media.vraaghetjeffrey.nl
+        - nas.jonathanj.nl
       TTL: 300

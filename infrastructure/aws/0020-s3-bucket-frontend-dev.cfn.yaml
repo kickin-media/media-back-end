@@ -22,8 +22,7 @@ Resources:
         Enabled: true
         Comment: kick-in.media front-end
         Aliases:
-          - www.kick-in.media
-          - kick-in.media
+          - dev.kick-in.media
         IPV6Enabled: true
         Origins:
           - DomainName: !GetAtt S3Bucket.RegionalDomainName
@@ -49,7 +48,7 @@ Resources:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
     Properties:
       CloudFrontOriginAccessIdentityConfig:
-        Comment: "Identity for kick-in.media front-end"
+        Comment: "Identity for dev.kick-in.media front-end"
 
   # DNS
   DNSApexRecord4:
@@ -58,7 +57,7 @@ Resources:
       AliasTarget:
         DNSName: !GetAtt CloudFrontWebDistribution.DomainName
         HostedZoneId: Z2FDTNDATAQYW2
-      Name: !Sub "${DomainName}."
+      Name: !Sub "dev.${DomainName}."
       HostedZoneId: !Ref HostedZoneId
       Type: A
 
@@ -68,27 +67,7 @@ Resources:
       AliasTarget:
         DNSName: !GetAtt CloudFrontWebDistribution.DomainName
         HostedZoneId: Z2FDTNDATAQYW2
-      Name: !Sub "${DomainName}."
-      HostedZoneId: !Ref HostedZoneId
-      Type: AAAA
-
-  DNSWwwRecord4:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      AliasTarget:
-        DNSName: !GetAtt CloudFrontWebDistribution.DomainName
-        HostedZoneId: Z2FDTNDATAQYW2
-      Name: !Sub "www.${DomainName}."
-      HostedZoneId: !Ref HostedZoneId
-      Type: A
-
-  DNSWwwRecord6:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      AliasTarget:
-        DNSName: !GetAtt CloudFrontWebDistribution.DomainName
-        HostedZoneId: Z2FDTNDATAQYW2
-      Name: !Sub "www.${DomainName}."
+      Name: !Sub "dev.${DomainName}."
       HostedZoneId: !Ref HostedZoneId
       Type: AAAA
 
@@ -96,7 +75,7 @@ Resources:
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: kickin-media-frontend
+      BucketName: kickin-media-frontend-dev
       WebsiteConfiguration:
         IndexDocument: index.html
       AccessControl: Private
@@ -131,9 +110,9 @@ Resources:
   UploadUser:
     Type: AWS::IAM::User
     Properties:
-      UserName: frontend-upload-user
+      UserName: frontend-upload-user-dev
       Policies:
-        - PolicyName: 'frontend-upload-user-policy'
+        - PolicyName: 'frontend-upload-user-policy-dev'
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
