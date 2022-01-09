@@ -33,7 +33,12 @@ class Photo(PhotoBase, table=True):
 
     @property
     def exif(self):
-        return json.loads(self.exif_data)
+        filtered_exif = {}
+        for k, v in json.loads(self.exif_data).items():
+            if 'serial' in k:
+                continueq
+            filtered_exif[k] = v
+        return filtered_exif
 
     @property
     def img_urls(self):
@@ -68,6 +73,7 @@ class PhotoReadSingle(PhotoBase):
     timestamp: Optional[datetime.datetime]
     exif: dict
     img_urls: PhotoImgUrls
+    author: Author
 
     # This should be fixed later on, but for now it throws an error I haven't yet been able to solve.
     class Album(SQLModel):

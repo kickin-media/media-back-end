@@ -70,43 +70,52 @@ async def reprocess_photo(photo_id: str,
     if photo.author.id != auth_data['sub'] and 'photos:manage_other' not in auth_data['permissions']:
         raise HTTPException(status_code=403, detail="can_only_reprocess_own_photos")
 
-    process_uploaded_photo.process_photo(db_photo=photo)
+    process_uploaded_photo.process_photo(db_photo=photo, db_session=db)
 
     raise HTTPException(status_code=200, detail="done")
 
 
-@router.post("/", response_model=PhotoUploadResponse)
-async def create_upload(auth_data=Depends(JWTBearer(required_permissions=['photos:upload'])),
+@router.post("/", response_model=List[PhotoUploadResponse])
+async def create_upload(num_uploads: int = 1,
+                        auth_data=Depends(JWTBearer(required_permissions=['photos:upload'])),
                         db: Session = Depends(get_db)):
+    if num_uploads < 1 or num_uploads > 100:
+        raise HTTPException(status_code=500, detail="no_uploads_not_allowed")
+
     author_id = auth_data['sub']
     author = db.get(Author, author_id)
     if author is None:
         raise HTTPException(status_code=500, detail="create_author_data_first")
 
-    photo_id = str(uuid.uuid4())
-    photo_secret = str(uuid.uuid4())
+    response_list = []
 
-    photo = Photo(
-        id=photo_id,
-        secret=photo_secret,
-        uploaded_at=datetime.datetime.utcnow(),
-        upload_processed=False,
-        author_id=author_id
-    )
+    for i in range(num_uploads):
+        photo_id = str(uuid.uuid4())
+        photo_secret = str(uuid.uuid4())
 
-    upload_url = boto3.client('s3').generate_presigned_post(
-        S3_BUCKET,
-        "/".join([S3_BUCKET_UPLOAD_PATH, photo.secret, "{}.jpg".format(photo.id)]),
-        ExpiresIn=S3_UPLOAD_EXPIRY
-    )
+        photo = Photo(
+            id=photo_id,
+            secret=photo_secret,
+            uploaded_at=datetime.datetime.utcnow(),
+            upload_processed=False,
+            author_id=author_id
+        )
 
-    db.add(photo)
-    db.commit()
+        upload_url = boto3.client('s3').generate_presigned_post(
+            S3_BUCKET,
+            "/".join([S3_BUCKET_UPLOAD_PATH, photo.secret, "{}.jpg".format(photo.id)]),
+            ExpiresIn=S3_UPLOAD_EXPIRY
+        )
 
-    return PhotoUploadResponse(
-        photo_id=photo.id,
-        pre_signed_url=upload_url
-    )
+        db.add(photo)
+        db.commit()
+
+        response_list.append(PhotoUploadResponse(
+            photo_id=photo.id,
+            pre_signed_url=upload_url
+        ))
+
+    return response_list
 
 
 @router.put("/{photo_id}/albums", response_model=Photo)
