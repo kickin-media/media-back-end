@@ -1,0 +1,31 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+
+  deploy-infrastructure:
+    name: Deploy infrastructure to AWS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Prerequisites
+        run: |
+          cd aws-infrastructure
+          sudo npm install -g aws-cdk@latest
+          cdk --version
+          pip install -r requirements.txt
+
+      # Build and Deploy CDK application
+      - name: Build & Deploy
+        run: |
+          cd aws-infrastructure
+          cdk deploy --all --require-approval never
+        env:
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_CICD_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_CICD_ACCESS_KEY_SECRET }}

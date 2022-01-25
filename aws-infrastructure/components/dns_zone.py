@@ -2,25 +2,22 @@ from aws_cdk import (
     Stack,
     Duration,
     aws_route53 as r53,
-    aws_route53_targets as targets,
-    aws_ssm as ssm,
-    aws_cloudfront as cloudfront
 )
 from constructs import Construct
-import hashlib
 
 
 class MediaDNSZone(Stack):
+    zone: r53.HostedZone
 
-    def __init__(self, scope: Construct, construct_id: str, zone_name: str, bucket_aliases: {}, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, zone_name: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        zone = r53.HostedZone(self, "Zone", zone_name=zone_name)
+        self.zone = r53.HostedZone(self, "Zone", zone_name=zone_name)
 
         # CAA Record
         r53.CaaRecord(
             self, "CAARecordSet",
-            zone=zone,
+            zone=self.zone,
             record_name=f"{zone_name}.",
             ttl=Duration.minutes(5),
             values=[
@@ -54,41 +51,25 @@ class MediaDNSZone(Stack):
 
         # ACM Validation
         r53.CnameRecord(
-            self, "ACMValidationRecordSet",
-            zone=zone,
+            self, "ACMValidationRecordSetProd",
+            zone=self.zone,
             record_name=f"_8cade9b0c5c37ed85fb1334e555b09e4.{zone_name}.",
             ttl=Duration.minutes(5),
             domain_name="_120c7ca5fe0a3137f32cdc74922dc008.fsdcfjjflr.acm-validations.aws."
         )
-
-        # Developtment API
-        r53.RecordSet(
-            self, "DeveloptmentAPIRecordSet",
-            zone=zone,
-            record_name=f"api.dev.{zone_name}.",
-            type=r53.RecordType.CNAME,
+        r53.CnameRecord(
+            self, "ACMValidationRecordSetDev",
+            zone=self.zone,
+            record_name=f"_5900bc4aac5f2875f40f47bf8f651b5a.dev.{zone_name}.",
             ttl=Duration.minutes(5),
-            target=r53.RecordTarget.from_values("nas.jonathanj.nl.")
+            domain_name="_f3ff463096b7c942bd4fae4cc8cf9335.pczglchxlc.acm-validations.aws."
         )
 
-        # Bucket Aliases
-        # DO THIS THE OTHER WAY AROUND TODO??
-        for hostname in bucket_aliases.keys():
-            r_id = hashlib.md5(hostname).hexdigest()
-            target = cloudfront.Distribution.from_distribution_attributes(
-                self, f"CloudfrontDist_{r_id}",
-                distribution_id="",
-                domain_name=""
-            )
-            r53.ARecord(
-                self, f"BucketAliasRecordSet_A_{r_id}",
-                zone=zone,
-                record_name=f"{hostname}.",
-                target=r53.RecordTarget.from_alias(targets.CloudFrontTarget(target))
-            )
-            r53.AaaaRecord(
-                self, f"BucketAliasRecordSet_AAAA_{r_id}",
-                zone=zone,
-                record_name=f"{hostname}.",
-                target=r53.RecordTarget.from_alias(targets.CloudFrontTarget(target))
-            )
+        # Development API
+        r53.CnameRecord(
+            self, "DeveloptmentAPIRecordSet",
+            zone=self.zone,
+            record_name=f"api.dev.{zone_name}.",
+            ttl=Duration.minutes(5),
+            domain_name="nas.jonathanj.nl."
+        )
