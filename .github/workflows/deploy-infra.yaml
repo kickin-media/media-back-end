@@ -3,7 +3,9 @@ name: Deploy Infrastructure
 on:
   push:
     branches: [master]
-
+    paths:
+      - .github/workflows/deploy-infra.yaml
+      - aws-infrastructure/**
 jobs:
 
   deploy-infrastructure:
