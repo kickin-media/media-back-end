@@ -1,6 +1,6 @@
 FROM python:3.9-slim
 
-LABEL org.opencontainers.image.source https://github.com/jonathanjuursema/media-back-end
+LABEL org.opencontainers.image.source https://github.com/kickin-media/media-back-end
 
 ENV ENVIRONMENT=development
 ENV DB_CONNECTION="mysql+pymysql://kickin:kickin@localhost/media_backend"

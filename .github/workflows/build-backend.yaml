@@ -31,7 +31,7 @@ jobs:
         with:
           context: .
           tags: |
-            ghcr.io/jonathanjuursema/media-back-end/media-photo-api:latest
+            ghcr.io/kickin-media/media-back-end/media-photo-api:latest
           # build on feature branches, push only on main branch
           push: ${{ github.ref == 'refs/heads/master' }}
 
