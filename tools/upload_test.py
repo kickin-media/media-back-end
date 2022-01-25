@@ -29,7 +29,7 @@ headers = {
 for file in files:
     print("Uploading {}...".format(file))
     upload_data = requests.post('/'.join([args.api, 'photo', '']), headers=headers)
-    upload_data = json.loads(upload_data.content)
+    upload_data = json.loads(upload_data.content)[0]
     print("  Created photo: {}".format(upload_data['photo_id']))
     with open(file, 'rb') as fp:
         file_dict = {'file': (file, fp)}
