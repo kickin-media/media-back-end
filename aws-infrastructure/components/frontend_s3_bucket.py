@@ -99,6 +99,14 @@ class S3FrontendBucket(Stack):
                         effect=iam.Effect.ALLOW,
                         actions=["s3:ListBucket"],
                         resources=["{bucket_arn}".format(bucket_arn=frontend_bucket.bucket_arn)]
+                    ),
+                    iam.PolicyStatement(
+                        effect=iam.Effect.ALLOW,
+                        actions=["cloudfront:CreateInvalidation"],
+                        resources=["arn:aws:cloudfront::{account_id}:distribution/{distrubtion_id}".format(
+                            account_id=Stack.of(self).account,
+                            distrubtion_id=cloudfront_proxy.distribution_id
+                        )]
                     )
                 ]
             )
