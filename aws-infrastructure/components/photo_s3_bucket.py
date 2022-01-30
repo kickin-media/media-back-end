@@ -15,7 +15,8 @@ from constructs import Construct
 class S3PhotoBucket(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, bucket_name: str, bucket_hostnames: [str],
-                 bucket_hostname_acm_arn: str, hosted_zone: r53.HostedZone, **kwargs) -> None:
+                 bucket_hostname_acm_arn: str, hosted_zone: r53.HostedZone, stage: str,
+                 frontend_bucket_hostnames: [str], **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # CloudFront ID
@@ -26,13 +27,22 @@ class S3PhotoBucket(Stack):
         )
 
         # S3 Bucket
+        bucket_cors_hostnames = [f'https://{host}' for host in frontend_bucket_hostnames]
+        if stage == 'dev':
+            bucket_cors_hostnames.extend(['http://localhost', 'http://localhost:3000'])
 
         photo_bucket = s3.Bucket(
             self, "PhotoBucket",
             bucket_name=bucket_name,
             website_index_document="index.html",
             access_control=s3.BucketAccessControl.PRIVATE,
-            block_public_access=s3.BlockPublicAccess.BLOCK_ALL
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            cors=[
+                s3.CorsRule(
+                    allowed_methods=[s3.HttpMethods.POST],
+                    allowed_origins=bucket_cors_hostnames
+                )
+            ]
         )
 
         # Bucket Cloudfront Proxy

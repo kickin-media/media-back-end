@@ -65,6 +65,16 @@ class MediaDNSZone(Stack):
             domain_name="_f3ff463096b7c942bd4fae4cc8cf9335.pczglchxlc.acm-validations.aws."
         )
 
+        # Production API
+        r53.CnameRecord(
+            self, "ProductionAPIRercordSet",
+            zone=self.zone,
+            record_name=f"api.{zone_name}.",
+            ttl=Duration.minutes(5),
+            # For the WKI we'll host prod locally as well.
+            domain_name="nas.jonathanj.nl."
+        )
+
         # Development API
         r53.CnameRecord(
             self, "DeveloptmentAPIRecordSet",

@@ -28,17 +28,21 @@ for stage in stages:
 
     photo_bucket_name = "kickin-media-photo-{stage}".format(stage=stage)
     photo_bucket_hostnames = [f"photos.{base_domain}"]
+
+    frontend_bucket_name = "kickin-media-frontend-{stage}".format(stage=stage)
+    frontend_bucket_hostnames = [base_domain, f"www.{base_domain}"]
+
     S3PhotoBucket(
         app, 'photo-bucket-{stage}'.format(stage=stage),
+        stage=stage,
         bucket_name=photo_bucket_name,
         bucket_hostnames=photo_bucket_hostnames,
         bucket_hostname_acm_arn=MEDIA_CERTIFICATE_ARN[stage],
         hosted_zone=dns_stack.zone,
+        frontend_bucket_hostnames=frontend_bucket_hostnames,
         env=cdk.Environment(account=MEDIA_ACCOUNT_ID, region=MEDIA_ACCOUNT_REGION)
     )
 
-    frontend_bucket_name = "kickin-media-frontend-{stage}".format(stage=stage)
-    frontend_bucket_hostnames = [base_domain, f"www.{base_domain}"]
     S3FrontendBucket(
         app, 'frontend-bucket-{stage}'.format(stage=stage),
         bucket_name=frontend_bucket_name,
