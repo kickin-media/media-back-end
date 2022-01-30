@@ -83,3 +83,32 @@ class MediaDNSZone(Stack):
             ttl=Duration.minutes(5),
             domain_name="nas.jonathanj.nl."
         )
+
+        # E-mail Records
+        r53.MxRecord(
+            self, "MediaMXRecordSet",
+            zone=self.zone,
+            record_name=f"{zone_name}.",
+            ttl=Duration.minutes(5),
+            values=[
+                r53.MxRecordValue(host_name="in1-smtp.messagingengine.com", priority=10),
+                r53.MxRecordValue(host_name="in2-smtp.messagingengine.com", priority=20)
+            ]
+        )
+
+        r53.TxtRecord(
+            self, "MediaMXTXTRecrodSet",
+            zone=self.zone,
+            record_name=f"{zone_name}.",
+            ttl=Duration.minutes(5),
+            values=["v=spf1 include:spf.messagingengine.com ?all"]
+        )
+
+        for i in [1, 2, 3]:
+            r53.CnameRecord(
+                self, f"MediaMXDKIMRecrodSet{i}",
+                zone=self.zone,
+                record_name=f"fm{i}._domainkey.{zone_name}.",
+                ttl=Duration.minutes(5),
+                domain_name=f"fm{i}.kick-in.media.dkim.fmhosted.com"
+            )
