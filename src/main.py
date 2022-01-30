@@ -36,6 +36,6 @@ api.include_router(author.router)
 
 # Set-up tasks
 @api.on_event('startup')
-@repeat_every(seconds=30, wait_first=True, raise_exceptions=True)
+@repeat_every(seconds=30, wait_first=False, raise_exceptions=True)
 def process_uploaded_photo_task():
     process_uploaded_photo()

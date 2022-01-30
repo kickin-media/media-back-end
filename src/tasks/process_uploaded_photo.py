@@ -111,8 +111,14 @@ def process_photo(db_photo: Photo, db_session: Session):
                         flash_dict[flash_k] = str(flash_v) if type(flash_v) not in [str, bool] else flash_v
             exif_data['flash'] = flash_dict
         else:
-            v = getattr(exif_object, k)
-            exif_data[k] = str(v) if type(v) not in [str, bool] else v
+            try:
+                v = getattr(exif_object, k)
+                exif_data[k] = str(v) if type(v) not in [str, bool] else v
+            except Exception as err:
+                print("Cannot read EXIF property {prop} from photo {photo}.".format(
+                    prop=k,
+                    photo=db_photo.id
+                ))
 
     original_exif_data = original_image.info['exif']
 
