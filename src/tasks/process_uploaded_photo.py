@@ -175,7 +175,7 @@ def process_photo(db_photo: Photo, db_session: Session):
             resized_image.save(upload_bytes, 'JPEG', exif=original_exif_data)
         print("Uploading size {}".format(size))
         upload_bytes.seek(0)
-        s3.put_object(Body=upload_bytes, Bucket=S3_BUCKET, Key=sizes[size]['path'])
+        s3.put_object(Body=upload_bytes, Bucket=S3_BUCKET, Key=sizes[size]['path'], ContentType='image/jpeg')
 
     # Mark as processed.
     db_photo.upload_processed = True
