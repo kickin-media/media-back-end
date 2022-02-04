@@ -120,7 +120,11 @@ def process_photo(db_photo: Photo, db_session: Session):
                     photo=db_photo.id
                 ))
 
-    original_exif_data = original_image.info['exif']
+    original_exif_data = None
+    if 'exif' not in original_image.info:
+        print(f"Image {db_photo.id} does not have EXIF data.")
+    else:
+        original_exif_data = original_image.info['exif']
 
     # Process Image
     image = original_image.copy()
@@ -165,14 +169,23 @@ def process_photo(db_photo: Photo, db_session: Session):
             if re_process:
                 print("Skipping re-processing of original.")
                 continue
-            original_image.save(upload_bytes, 'JPEG', exif=original_exif_data, quality=100)
+            if original_exif_data is not None:
+                original_image.save(upload_bytes, 'JPEG', exif=original_exif_data, quality=100)
+            else:
+                original_image.save(upload_bytes, 'JPEG', quality=100)
         elif size == 'original_size':
-            image.save(upload_bytes, 'JPEG', exif=original_exif_data, quality=95)
+            if original_exif_data is not None:
+                image.save(upload_bytes, 'JPEG', exif=original_exif_data, quality=95)
+            else:
+                image.save(upload_bytes, 'JPEG', quality=95)
         else:
             resized_image = image.copy()
             max_size = sizes[size]['length']
             resized_image.thumbnail((max_size, max_size))
-            resized_image.save(upload_bytes, 'JPEG', exif=original_exif_data)
+            if original_exif_data is not None:
+                resized_image.save(upload_bytes, 'JPEG', exif=original_exif_data)
+            else:
+                resized_image.save(upload_bytes, 'JPEG')
         print("Uploading size {}".format(size))
         upload_bytes.seek(0)
         s3.put_object(Body=upload_bytes, Bucket=S3_BUCKET, Key=sizes[size]['path'], ContentType='image/jpeg')
