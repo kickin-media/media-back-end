@@ -39,7 +39,10 @@ class S3PhotoBucket(Stack):
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             cors=[
                 s3.CorsRule(
-                    allowed_methods=[s3.HttpMethods.POST],
+                    allowed_methods=[
+                        s3.HttpMethods.POST,
+                        s3.HttpMethods.GET
+                    ],
                     allowed_origins=bucket_cors_hostnames
                 )
             ]
