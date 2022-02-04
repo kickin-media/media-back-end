@@ -24,7 +24,7 @@ api.add_middleware(
     allow_origins=variables.CORS_ORIGINS[app_environment],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"] if app_environment == 'development' else []
+    allow_headers=["*"]
 )
 
 # Include routers
