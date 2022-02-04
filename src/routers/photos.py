@@ -11,7 +11,7 @@ from models.photo import Photo, OriginalPhotoDownload, PhotoUploadResponse, Phot
 from models.author import Author
 from models.album import Album
 
-from variables import S3_BUCKET, S3_UPLOAD_EXPIRY, S3_BUCKET_UPLOAD_PATH, S3_BUCKET_ORIGINAL_PATH
+from variables import S3_BUCKET, S3_UPLOAD_EXPIRY, S3_BUCKET_UPLOAD_PATH, S3_BUCKET_ORIGINAL_PATH, S3_BUCKET_PHOTO_PATH
 
 from tasks import process_uploaded_photo
 
@@ -166,9 +166,19 @@ async def delete_photo(photo_id: str,
     if photo.author.id != auth_data['sub'] and 'photos:delete_other' not in auth_data['permissions']:
         raise HTTPException(status_code=403, detail="can_only_delete_own_photos")
 
-    if len(photo.albums) > 0:
-        raise HTTPException(status_code=400, detail="please_remove_from_albums_first")
+    for suffix in ['xl', 'l', 'm', 's']:
+        s3 = boto3.client('s3')
+        s3.delete_object(
+            Bucket=S3_BUCKET,
+            Key="/".join([S3_BUCKET_PHOTO_PATH, photo.secret, f"{photo.id}_{suffix}.jpg"])
+        )
+    s3.delete_object(
+        Bucket=S3_BUCKET,
+        Key="/".join([S3_BUCKET_ORIGINAL_PATH, f"{photo.id}_o.jpg"])
+    )
 
+    photo.albums = []
+    db.add(photo)
     db.delete(photo)
     db.commit()
 
