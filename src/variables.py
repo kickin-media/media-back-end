@@ -7,7 +7,7 @@ DB_CONNECTION_STRING = os.getenv('DB_CONNECTION', 'mysql+pymysql://kickin:kickin
 CORS_ORIGINS = {
     'production': ['https://kick-in.media', 'https://www.kick-in.media'],
     'staging': [],
-    'development': ['http://localhost:3000', 'https://dev.kick-in.media'],
+    'development': ['http://localhost:3000', 'https://dev.kick-in.media', 'https://www.dev.kick-in.media'],
 }
 
 # These values are asymmetric public values that are related to the Media Tool Auth0 client.
