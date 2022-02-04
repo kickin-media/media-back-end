@@ -99,26 +99,34 @@ def process_photo(db_photo: Photo, db_session: Session):
 
     # Extract EXIF data.
     photo_stream.seek(0)
-    exif_object = ExifImage(photo_stream)
     exif_data = {}
-    for k in exif_object.list_all():
-        if k == 'flash':
-            flash_dict = {}
-            for flash_k in dir(exif_object.flash):
-                if not flash_k.startswith('_'):
-                    flash_v = getattr(exif_object.flash, flash_k)
-                    if type(flash_v) in [str, bool] or str(type(flash_v)).startswith('<enum'):
-                        flash_dict[flash_k] = str(flash_v) if type(flash_v) not in [str, bool] else flash_v
-            exif_data['flash'] = flash_dict
-        else:
-            try:
-                v = getattr(exif_object, k)
-                exif_data[k] = str(v) if type(v) not in [str, bool] else v
-            except Exception as err:
-                print("Cannot read EXIF property {prop} from photo {photo}.".format(
-                    prop=k,
-                    photo=db_photo.id
-                ))
+    try:
+        exif_object = ExifImage(photo_stream)
+    except Exception as err:
+        print("Cannot read EXIF from photo {photo}.".format(
+            photo=db_photo.id
+        ))
+        exif_object = None
+
+    if exif_object is not None:
+        for k in exif_object.list_all():
+            if k == 'flash':
+                flash_dict = {}
+                for flash_k in dir(exif_object.flash):
+                    if not flash_k.startswith('_'):
+                        flash_v = getattr(exif_object.flash, flash_k)
+                        if type(flash_v) in [str, bool] or str(type(flash_v)).startswith('<enum'):
+                            flash_dict[flash_k] = str(flash_v) if type(flash_v) not in [str, bool] else flash_v
+                exif_data['flash'] = flash_dict
+            else:
+                try:
+                    v = getattr(exif_object, k)
+                    exif_data[k] = str(v) if type(v) not in [str, bool] else v
+                except Exception as err:
+                    print("Cannot read EXIF property {prop} from photo {photo}.".format(
+                        prop=k,
+                        photo=db_photo.id
+                    ))
 
     original_exif_data = None
     if 'exif' not in original_image.info:
