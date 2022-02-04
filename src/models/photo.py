@@ -66,6 +66,7 @@ class PhotoReadList(PhotoBase):
     id: str
     timestamp: Optional[datetime.datetime]
     img_urls: PhotoImgUrls
+    upload_processed: bool
 
 
 class PhotoReadSingleStub(PhotoReadList):
