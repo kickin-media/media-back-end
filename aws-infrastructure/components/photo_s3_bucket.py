@@ -37,6 +37,14 @@ class S3PhotoBucket(Stack):
             website_index_document="index.html",
             access_control=s3.BucketAccessControl.PRIVATE,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            versioned=True,
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    enabled=True,
+                    abort_incomplete_multipart_upload_after=Duration.days(1),
+                    noncurrent_version_expiration=Duration.days(31)
+                )
+            ],
             cors=[
                 s3.CorsRule(
                     allowed_methods=[
