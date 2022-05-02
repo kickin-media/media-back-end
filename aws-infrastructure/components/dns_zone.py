@@ -65,6 +65,26 @@ class MediaDNSZone(Stack):
             domain_name="_f3ff463096b7c942bd4fae4cc8cf9335.pczglchxlc.acm-validations.aws."
         )
 
+        # AWS Server
+        r53.ARecord(
+            self, "AWSServerRecordSet",
+            zone=self.zone,
+            record_name=f"aws.{zone_name}.",
+            ttl=Duration.minutes(5),
+            target=r53.RecordTarget(values=[
+                "54.216.103.170"
+            ])
+        )
+        r53.ARecord(
+            self, "AWSServerRecordSetWildcard",
+            zone=self.zone,
+            record_name=f"*.aws.{zone_name}.",
+            ttl=Duration.minutes(5),
+            target=r53.RecordTarget(values=[
+                "54.216.103.170"
+            ])
+        )
+
         # Production API
         r53.CnameRecord(
             self, "ProductionAPIRercordSet",
@@ -72,7 +92,7 @@ class MediaDNSZone(Stack):
             record_name=f"api.{zone_name}.",
             ttl=Duration.minutes(5),
             # For the WKI we'll host prod locally as well.
-            domain_name="nas.jonathanj.nl."
+            domain_name="aws.kick-in.media."
         )
 
         # Development API
@@ -81,7 +101,7 @@ class MediaDNSZone(Stack):
             zone=self.zone,
             record_name=f"api.dev.{zone_name}.",
             ttl=Duration.minutes(5),
-            domain_name="nas.jonathanj.nl."
+            domain_name="aws.kick-in.media."
         )
 
         # E-mail Records
