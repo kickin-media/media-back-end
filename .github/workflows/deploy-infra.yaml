@@ -23,12 +23,16 @@ jobs:
           sudo npm install -g aws-cdk@latest
           cdk --version
           pip install -r requirements.txt
+          cd components/photo-processing-lambda
+          pip install -r requirements.txt -t .
 
       # Build and Deploy CDK application
       - name: Build & Deploy
         run: |
           cd aws-infrastructure
+          cdk bootstrap
           cdk deploy --all --require-approval never
         env:
+            AWS_DEFAULT_REGION: eu-west-1
             AWS_ACCESS_KEY_ID: ${{ secrets.AWS_CICD_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_CICD_ACCESS_KEY_SECRET }}
