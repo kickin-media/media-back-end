@@ -12,7 +12,7 @@ import os
 
 class S3PhotoHandler(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, stage: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, stage: str, photo_bucket_name: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # SQS Queue
@@ -39,9 +39,15 @@ class S3PhotoHandler(Stack):
                             resources=["*"]
                         ),
                         iam.PolicyStatement(
-                            actions=["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+                            actions=["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage",
+                                     "sqs:GetQueueAttributes"],
                             effect=iam.Effect.ALLOW,
                             resources=[self.sqs_queue.queue_arn]
+                        ),
+                        iam.PolicyStatement(
+                            effect=iam.Effect.ALLOW,
+                            actions=["s3:PutObject", "s3:GetObject", "s3:HeadObject", "s3:DeleteObject"],
+                            resources=[f"arn:aws:s3:::{photo_bucket_name}/*"]
                         )
                     ]
                 )
@@ -54,7 +60,10 @@ class S3PhotoHandler(Stack):
             self, "LambdaFunction",
             runtime=_lambda.Runtime.PYTHON_3_8,
             handler="index.process",
-            code=_lambda.Code.from_asset(os.path.join("components", "photo-processing-lambda"))
+            code=_lambda.Code.from_asset(os.path.join("components", "photo-processing-lambda")),
+            role=execution_role,
+            timeout=Duration.minutes(2),
+            memory_size=2048
         )
 
         event_source_mapping = lambda_events.SqsEventSource(

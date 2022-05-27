@@ -35,7 +35,7 @@ for stage in stages:
 
     photo_process_stack = S3PhotoHandler(
         app, "photo-handler-{stage}".format(stage=stage),
-        stage=stage
+        stage=stage, photo_bucket_name=photo_bucket_name
     )
 
     S3PhotoBucket(

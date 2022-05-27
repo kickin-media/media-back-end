@@ -151,25 +151,27 @@ def process(event, context):
             watermark_object.download_fileobj(watermark_stream)
             watermark_image = Image.open(watermark_stream)
         except botocore.exceptions.ClientError as err:
-            if 'Not Found' in str(err):
+            if 'Not Found' in str(err) or 'Forbidden' in str(err):
                 print("Event specific watermark not found. Try default one.")
                 watermark_image = None
             else:
                 raise err
 
-        try:
-            watermark_object = s3.Object(process_metadata['S3_BUCKET'], f"assets/watermark-default.png")
-            watermark_stream = io.BytesIO()
-            watermark_object.download_fileobj(watermark_stream)
-            watermark_image = Image.open(watermark_stream)
-        except botocore.exceptions.ClientError as err:
-            if 'Not Found' in str(err):
-                print("No watermark found. Pushing event back on queue.")
-                push_back(record)
-                print("Done. Stop processing this event.")
-                continue
-            else:
-                raise err
+        if watermark_image is None:
+            print("Downloading default watermark.")
+            try:
+                watermark_object = s3.Object(process_metadata['S3_BUCKET'], f"assets/watermark-default.png")
+                watermark_stream = io.BytesIO()
+                watermark_object.download_fileobj(watermark_stream)
+                watermark_image = Image.open(watermark_stream)
+            except botocore.exceptions.ClientError as err:
+                if 'Not Found' in str(err):
+                    print("No watermark found. Pushing event back on queue.")
+                    push_back(record)
+                    print("Done. Stop processing this event.")
+                    continue
+                else:
+                    raise err
 
         print("Creating thumbnails.")
         # Create watermarked image.
