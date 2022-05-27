@@ -10,16 +10,13 @@ from typing import List
 from models.photo import Photo, OriginalPhotoDownload, PhotoUploadResponse, PhotoReadSingle, PhotoReadSingleStub
 from models.author import Author
 from models.album import Album
-from models.event import EventReadSingle
 
-from variables import S3_BUCKET, S3_UPLOAD_EXPIRY, S3_BUCKET_UPLOAD_PATH, S3_BUCKET_ORIGINAL_PATH, S3_BUCKET_PHOTO_PATH, \
-    PHOTO_PROCESSING_SQS_QUEUE, API_BASE
+from variables import S3_BUCKET, S3_UPLOAD_EXPIRY, S3_BUCKET_UPLOAD_PATH, S3_BUCKET_ORIGINAL_PATH, S3_BUCKET_PHOTO_PATH
 
 from tasks import process_uploaded_photo
 
 import boto3
 import uuid
-import json
 
 router = APIRouter(
     prefix="/photo",
@@ -36,49 +33,6 @@ async def get_photo(photo_id: str,
         raise HTTPException(status_code=404, detail="photo_not_found")
 
     return photo
-
-
-@router.get("/{photo_id}/event", response_model=EventReadSingle)
-async def get_photo_event(photo_id: str,
-                          db: Session = Depends(get_db)):
-    photo = db.get(Photo, photo_id)
-
-    if photo is None:
-        raise HTTPException(status_code=404, detail="photo_not_found")
-
-    if len(photo.albums) == 0:
-        raise HTTPException(status_code=404, detail="photo_not_in_album")
-
-    return photo.albums[0].event
-
-
-@router.post("/{photo_id}/exif/{photo_exif_secret}")
-async def finalize_upload(photo_id: str, photo_exif_secret: str, request_data: dict,
-                          db: Session = Depends(get_db)):
-    photo = db.get(Photo, photo_id)
-
-    if photo is None:
-        raise HTTPException(status_code=404, detail="photo_not_found")
-
-    if photo.exif_update_secret is None:
-        raise HTTPException(status_code=403, detail="photo_doesnt_expect_update")
-
-    if photo_exif_secret != photo.exif_update_secret:
-        raise HTTPException(status_code=403, detail="invalid_update_key")
-
-    exif_data = request_data['exif_data']
-
-    photo.exif_data = json.dumps(exif_data)
-    photo.upload_processed = True
-    photo.exif_update_secret = None
-
-    if 'datetime_original' in exif_data.keys():
-        photo.timestamp = exif_data['datetime_original']
-
-    db.add(photo)
-    db.commit()
-
-    raise HTTPException(status_code=200, detail="done")
 
 
 @router.get("/{photo_id}/original", response_model=OriginalPhotoDownload)
@@ -104,32 +58,6 @@ async def get_original_photo(photo_id: str,
     return OriginalPhotoDownload(download_url=download_url)
 
 
-def trigger_photo_process(photo: Photo, exif_update_secret: str, author: Author, source_path: str,
-                          delete_upload: bool = False):
-    sqs = boto3.client('sqs')
-
-    sqs_message_body = json.dumps({
-        'photo_id': photo.id,
-        'photo_secret': photo.secret,
-        'exif_update_secret': exif_update_secret,
-        'author': author.name,
-        'delete_upload': delete_upload,
-        'data': {
-            'S3_BUCKET': S3_BUCKET,
-            'S3_SOURCE_PATH': source_path,
-            'S3_BUCKET_PHOTO_PATH': S3_BUCKET_PHOTO_PATH,
-            'S3_BUCKET_ORIGINAL_PATH': S3_BUCKET_ORIGINAL_PATH,
-            'API_BASE': API_BASE
-        }
-    })
-
-    sqs.send_message(
-        QueueUrl=PHOTO_PROCESSING_SQS_QUEUE,
-        MessageBody=sqs_message_body,
-        DelaySeconds=60,
-    )
-
-
 @router.post("/{photo_id}/reprocess")
 async def reprocess_photo(photo_id: str,
                           auth_data=Depends(JWTBearer()),
@@ -142,17 +70,9 @@ async def reprocess_photo(photo_id: str,
     if photo.author.id != auth_data['sub'] and 'photos:manage_other' not in auth_data['permissions']:
         raise HTTPException(status_code=403, detail="can_only_reprocess_own_photos")
 
-    exif_update_secret = str(uuid.uuid4())
-    photo.exif_update_secret = exif_update_secret
-    db.add(photo)
-    db.commit()
+    process_uploaded_photo.process_photo(db_photo=photo, db_session=db)
 
-    original_path = "/".join([S3_BUCKET_ORIGINAL_PATH, "{}_o.jpg".format(photo.id)])
-
-    trigger_photo_process(photo=photo, author=photo.author, exif_update_secret=exif_update_secret, delete_upload=True,
-                          source_path=original_path)
-
-    raise HTTPException(status_code=200, detail="scheduled")
+    raise HTTPException(status_code=200, detail="done")
 
 
 @router.post("/", response_model=List[PhotoUploadResponse])
@@ -172,15 +92,13 @@ async def create_upload(num_uploads: int = 1,
     for i in range(num_uploads):
         photo_id = str(uuid.uuid4())
         photo_secret = str(uuid.uuid4())
-        exif_update_secret = str(uuid.uuid4())
 
         photo = Photo(
             id=photo_id,
             secret=photo_secret,
             uploaded_at=datetime.datetime.utcnow(),
             upload_processed=False,
-            author_id=author_id,
-            exif_update_secret=exif_update_secret
+            author_id=author_id
         )
 
         upload_url = boto3.client('s3').generate_presigned_post(
@@ -196,9 +114,6 @@ async def create_upload(num_uploads: int = 1,
             photo_id=photo.id,
             pre_signed_url=upload_url
         ))
-
-        trigger_photo_process(photo=photo, author=author, exif_update_secret=exif_update_secret, delete_upload=True,
-                              source_path=upload_url['fields']['key'])
 
     return response_list
 

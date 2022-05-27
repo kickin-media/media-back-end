@@ -16,7 +16,7 @@ class S3PhotoBucket(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, bucket_name: str, bucket_hostnames: [str],
                  bucket_hostname_acm_arn: str, hosted_zone: r53.HostedZone, stage: str,
-                 frontend_bucket_hostnames: [str], photo_process_queue, **kwargs) -> None:
+                 frontend_bucket_hostnames: [str], **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # CloudFront ID
@@ -102,11 +102,6 @@ class S3PhotoBucket(Stack):
                         effect=iam.Effect.ALLOW,
                         actions=["s3:ListBucket"],
                         resources=["{bucket_arn}".format(bucket_arn=photo_bucket.bucket_arn)]
-                    ),
-                    iam.PolicyStatement(
-                        effect=iam.Effect.ALLOW,
-                        actions=["sqs:GetQueueAttributes", "sqs:SendMessage"],
-                        resources=[photo_process_queue.queue_arn]
                     )
                 ]
             )

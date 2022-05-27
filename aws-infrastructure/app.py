@@ -3,7 +3,6 @@ import aws_cdk as cdk
 
 from components.photo_s3_bucket import S3PhotoBucket
 from components.frontend_s3_bucket import S3FrontendBucket
-from components.photo_handler import S3PhotoHandler
 from components.dns_zone import MediaDNSZone
 
 MEDIA_ACCOUNT_ID = "990658861879"
@@ -33,11 +32,6 @@ for stage in stages:
     frontend_bucket_name = "kickin-media-frontend-{stage}".format(stage=stage)
     frontend_bucket_hostnames = [base_domain, f"www.{base_domain}"]
 
-    photo_process_stack = S3PhotoHandler(
-        app, "photo-handler-{stage}".format(stage=stage),
-        stage=stage
-    )
-
     S3PhotoBucket(
         app, 'photo-bucket-{stage}'.format(stage=stage),
         stage=stage,
@@ -46,8 +40,7 @@ for stage in stages:
         bucket_hostname_acm_arn=MEDIA_CERTIFICATE_ARN[stage],
         hosted_zone=dns_stack.zone,
         frontend_bucket_hostnames=frontend_bucket_hostnames,
-        env=cdk.Environment(account=MEDIA_ACCOUNT_ID, region=MEDIA_ACCOUNT_REGION),
-        photo_process_queue=photo_process_stack.sqs_queue
+        env=cdk.Environment(account=MEDIA_ACCOUNT_ID, region=MEDIA_ACCOUNT_REGION)
     )
 
     S3FrontendBucket(

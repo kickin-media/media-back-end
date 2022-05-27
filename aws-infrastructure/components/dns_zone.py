@@ -72,7 +72,7 @@ class MediaDNSZone(Stack):
             record_name=f"aws.{zone_name}.",
             ttl=Duration.minutes(5),
             target=r53.RecordTarget(values=[
-                "34.244.161.121"
+                "54.216.103.170"
             ])
         )
         r53.ARecord(
@@ -81,7 +81,7 @@ class MediaDNSZone(Stack):
             record_name=f"*.aws.{zone_name}.",
             ttl=Duration.minutes(5),
             target=r53.RecordTarget(values=[
-                "34.244.161.121"
+                "54.216.103.170"
             ])
         )
 
@@ -91,6 +91,7 @@ class MediaDNSZone(Stack):
             zone=self.zone,
             record_name=f"api.{zone_name}.",
             ttl=Duration.minutes(5),
+            # For the WKI we'll host prod locally as well.
             domain_name="aws.kick-in.media."
         )
 
