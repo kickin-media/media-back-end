@@ -15,8 +15,6 @@ from models.event import EventReadSingle
 from variables import S3_BUCKET, S3_UPLOAD_EXPIRY, S3_BUCKET_UPLOAD_PATH, S3_BUCKET_ORIGINAL_PATH, S3_BUCKET_PHOTO_PATH, \
     PHOTO_PROCESSING_SQS_QUEUE, API_BASE
 
-from tasks import process_uploaded_photo
-
 import boto3
 import uuid
 import json
