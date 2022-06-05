@@ -103,7 +103,7 @@ async def get_original_photo(photo_id: str,
 
 
 def trigger_photo_process(photo: Photo, exif_update_secret: str, author: Author, source_path: str,
-                          delete_upload: bool = False):
+                          delete_upload: bool = False, delay_seconds: int = 60, ttl: int = 30):
     sqs = boto3.client('sqs')
 
     sqs_message_body = json.dumps({
@@ -113,6 +113,7 @@ def trigger_photo_process(photo: Photo, exif_update_secret: str, author: Author,
         'author': author.name,
         'delete_upload': delete_upload,
         'data': {
+            'TTL': ttl,
             'S3_BUCKET': S3_BUCKET,
             'S3_SOURCE_PATH': source_path,
             'S3_BUCKET_PHOTO_PATH': S3_BUCKET_PHOTO_PATH,
@@ -124,7 +125,7 @@ def trigger_photo_process(photo: Photo, exif_update_secret: str, author: Author,
     sqs.send_message(
         QueueUrl=PHOTO_PROCESSING_SQS_QUEUE,
         MessageBody=sqs_message_body,
-        DelaySeconds=60,
+        DelaySeconds=delay_seconds,
     )
 
 
@@ -148,7 +149,7 @@ async def reprocess_photo(photo_id: str,
     original_path = "/".join([S3_BUCKET_ORIGINAL_PATH, "{}_o.jpg".format(photo.id)])
 
     trigger_photo_process(photo=photo, author=photo.author, exif_update_secret=exif_update_secret, delete_upload=True,
-                          source_path=original_path)
+                          source_path=original_path, delay_seconds=0, ttl=5)
 
     raise HTTPException(status_code=200, detail="scheduled")
 

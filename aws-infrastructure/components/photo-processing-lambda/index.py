@@ -11,8 +11,11 @@ import requests
 
 def push_back(record):
     sqs = boto3.client('sqs')
+    queue_url = sqs.get_queue_url(
+        QueueName=record['eventSourceARN'].split(":")[-1]
+    )
     sqs.send_message(
-        QueueUrl=record['eventSourceARN'],
+        QueueUrl=queue_url['QueueUrl'],
         MessageBody=record['body'],
         DelaySeconds=60,
     )
@@ -29,6 +32,15 @@ def process(event, context):
             'delete_upload': process_message['delete_upload']
         }
         process_metadata = process_message['data']
+
+        if process_metadata['TTL'] <= 0:
+            print(f"Message TTL reached 0, dropping message: {record['body']}")
+            return
+        else:
+            process_message['data']['TTL'] -= 1
+            print(f"Message TTL lowered to {process_message['data']['TTL']}")
+            record['body'] = json.dumps(process_message)
+
         print(f"Processing upload {photo_data['id']}...")
 
         s3 = boto3.resource('s3')
