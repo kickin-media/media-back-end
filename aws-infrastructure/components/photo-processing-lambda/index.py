@@ -24,14 +24,19 @@ def push_back(record):
 def process(event, context):
     for record in event['Records']:
         process_message = json.loads(record["body"])
-        photo_data = {
-            'id': process_message['photo_id'],
-            'secret': process_message['photo_secret'],
-            'author': process_message['author'],
-            'update_secret': process_message['exif_update_secret'],
-            'delete_upload': process_message['delete_upload']
-        }
-        process_metadata = process_message['data']
+
+        try:
+            photo_data = {
+                'id': process_message['photo_id'],
+                'secret': process_message['photo_secret'],
+                'author': process_message['author'],
+                'update_secret': process_message['exif_update_secret'],
+                'delete_upload': process_message['delete_upload']
+            }
+            process_metadata = process_message['data']
+        except Exception as err:
+            print(f"Message could not be evaluated: {record['body']}")
+            return
 
         if process_metadata['TTL'] <= 0:
             print(f"Message TTL reached 0, dropping message: {record['body']}")
