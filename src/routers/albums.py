@@ -156,7 +156,12 @@ async def empty_album(album_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="album_not_found")
 
     db_album_photos = db_album.photos
+    photo_ids_to_remove = []
     for photo in db_album_photos:
+        photo_ids_to_remove.append(photo.id)
+
+    for photo_id in photo_ids_to_remove:
+        photo = db.get(Photo, photo_id)
         photo.albums.remove(db_album)
         db.add(photo)
 
