@@ -158,13 +158,14 @@ async def reprocess_photo(photo_id: str,
 async def create_upload(num_uploads: int = 1,
                         auth_data=Depends(JWTBearer(required_permissions=['photos:upload'])),
                         db: Session = Depends(get_db)):
-    if num_uploads < 1 or num_uploads > 100:
-        raise HTTPException(status_code=500, detail="no_uploads_not_allowed")
+    # If this limit is ever changed, it needs to be updated in the front-end as well!
+    if num_uploads < 1 or num_uploads > 500:
+        raise HTTPException(status_code=400, detail="max_number_of_uploads_in_one_batch")
 
     author_id = auth_data['sub']
     author = db.get(Author, author_id)
     if author is None:
-        raise HTTPException(status_code=500, detail="create_author_data_first")
+        raise HTTPException(status_code=400, detail="create_author_data_first")
 
     response_list = []
 
