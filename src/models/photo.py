@@ -71,6 +71,11 @@ class PhotoReadList(PhotoBase):
     uploaded_at: datetime.datetime
 
 
+class PhotoStream(PhotoBase):
+    page: int
+    photos: List[Photo]
+
+
 class PhotoReadSingleStub(PhotoReadList):
     author: Author
 

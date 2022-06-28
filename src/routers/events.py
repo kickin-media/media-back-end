@@ -1,3 +1,5 @@
+import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from auth.auth_bearer import JWTBearer
 
@@ -6,8 +8,8 @@ from sqlmodel import Session, select
 from typing import List
 
 from models.event import Event, EventCreate, EventReadList, EventReadSingle
-from models.album import AlbumReadList
-from models.photo import PhotoUploadPreSignedUrl
+from models.album import AlbumReadList, Album
+from models.photo import PhotoUploadPreSignedUrl, PhotoStream, Photo
 
 from variables import S3_BUCKET_ASSET_PATH, S3_UPLOAD_EXPIRY, S3_BUCKET, S3_PHOTO_HOSTNAME
 
@@ -32,6 +34,59 @@ async def get_event(event_id: str, db: Session = Depends(get_db)):
     if event is None:
         raise HTTPException(status_code=404, detail="event_not_found")
     return event
+
+
+@router.get("/{event_id}/photo_stream", response_model=PhotoStream)
+async def get_event_photo_stream(event_id: str, page: int = 0, order: str = 'desc', sort_by: str = 'taken',
+                                 db: Session = Depends(get_db)):
+    event = db.get(Event, event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="event_not_found")
+
+    page_size = 50
+
+    if order == 'desc':
+        if sort_by == 'taken':
+            sorting_key = Photo.timestamp.desc()
+        elif sort_by == 'uploaded':
+            sorting_key = Photo.uploaded_at.desc()
+        else:
+            raise HTTPException(status_code=400, detail="invalid_sort_by")
+    elif order == 'asc':
+        if sort_by == 'taken':
+            sorting_key = Photo.timestamp.asc()
+        elif sort_by == 'uploaded':
+            sorting_key = Photo.uploaded_at.asc()
+        else:
+            raise HTTPException(status_code=400, detail="invalid_sort_by")
+    else:
+        raise HTTPException(status_code=400, detail="invalid_order")
+
+    # TODO - Correct join, currently defaults to cover art join.
+    photostream_statement = select(Photo).join(Album).order_by(sorting_key).limit(page_size).offset(page * page_size).where(
+        Photo.upload_processed == 1)
+    photostream_results = db.exec(photostream_statement)
+
+    photostream_response = PhotoStream(
+        page=page,
+        photos=[]
+    )
+
+    for photo in photostream_results:
+        visible = False
+        for album in photo.albums:
+            if album.event_id != event_id:
+                continue
+            if album.hidden_secret is None:
+                visible = True
+                break
+            if album.release_time is None or datetime.datetime.utcnow() > album.release_time:
+                visible = True
+                break
+        if visible:
+            photostream_response.photos.append(photo)
+
+    return photostream_response
 
 
 @router.get("/{event_id}/albums", response_model=List[AlbumReadList])
