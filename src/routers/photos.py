@@ -4,10 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from auth.auth_bearer import JWTBearer
 
 from database import get_db
-from sqlmodel import Session
+from sqlmodel import Session, select
 from typing import List
 
-from models.photo import Photo, OriginalPhotoDownload, PhotoUploadResponse, PhotoReadSingle, PhotoReadSingleStub
+from models.photo import Photo, OriginalPhotoDownload, PhotoUploadResponse, PhotoReadSingle, PhotoReadSingleStub, \
+    PhotoStream, PhotoReadList
 from models.author import Author
 from models.album import Album
 from models.event import EventReadSingle
@@ -23,6 +24,56 @@ router = APIRouter(
     prefix="/photo",
     tags=["photo"]
 )
+
+
+@router.get("/stream", response_model=PhotoStream)
+async def get_event_photo_stream(page: int = 0, order: str = 'desc', sort_by: str = 'uploaded',
+                                 db: Session = Depends(get_db)):
+
+    page_size = 50
+
+    if sort_by == 'taken':
+        sorting_key = Photo.timestamp
+    elif sort_by == 'uploaded':
+        sorting_key = Photo.uploaded_at
+    else:
+        raise HTTPException(status_code=400, detail="invalid_sort_by")
+
+    if order == 'desc':
+        sorting_key = sorting_key.desc()
+    elif order == 'asc':
+        sorting_key = sorting_key.asc()
+    else:
+        raise HTTPException(status_code=400, detail="invalid_order")
+
+    photostream_statement = select(Photo).order_by(sorting_key).limit(page_size).offset(
+        page * page_size).where(
+        Photo.upload_processed == 1)
+    photostream_results = db.exec(photostream_statement)
+
+    photostream_response = PhotoStream(
+        page=page,
+        photos=[]
+    )
+
+    for photo in photostream_results:
+        visible = True
+        for album in photo.albums:
+            if album.hidden_secret is None:
+                visible = True
+                break
+            if album.release_time is None or datetime.datetime.utcnow() > album.release_time:
+                visible = True
+                break
+        if visible:
+            # These yucky lines are necessary because img_urls is a computed property and for some reason not
+            # automatically included in the JSON response in this specific case...
+            # See: https://github.com/tiangolo/fastapi/issues/4288
+            photo_with_urls = photo.dict()
+            photo_with_urls['img_urls'] = photo.img_urls
+            photostream_response.photos.append(photo_with_urls)
+
+    return photostream_response
 
 
 @router.get("/{photo_id}", response_model=PhotoReadSingle)
