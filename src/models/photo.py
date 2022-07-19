@@ -2,6 +2,7 @@ import json
 
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
+from pydantic import validator
 
 from models.author import Author
 from models.albumphotolink import AlbumPhotoLink
@@ -57,9 +58,9 @@ class Photo(PhotoBase, table=True):
             'small': '_s'
         }
         url_dict = {}
-        for k, v in sizes.items():
-            url_dict[k] = "/".join(
-                [S3_PHOTO_HOSTNAME, S3_BUCKET_PHOTO_PATH, self.secret, "{}{}.jpg".format(self.id, v)])
+        for size_name, size_suffix in sizes.items():
+            url_dict[size_name] = "/".join(
+                [S3_PHOTO_HOSTNAME, S3_BUCKET_PHOTO_PATH, self.secret, "{}{}.jpg".format(self.id, size_suffix)])
         return url_dict
 
 
@@ -69,6 +70,11 @@ class PhotoReadList(PhotoBase):
     img_urls: PhotoImgUrls
     upload_processed: bool
     uploaded_at: datetime.datetime
+
+
+class PhotoStream(PhotoBase):
+    page: int
+    photos: List[PhotoReadList]
 
 
 class PhotoReadSingleStub(PhotoReadList):

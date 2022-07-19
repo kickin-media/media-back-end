@@ -24,10 +24,11 @@ class Album(AlbumBase, table=True):
     id: Optional[str] = Field(default=None, primary_key=True, index=True)
     hidden_secret: Optional[str] = None
 
+    photos: List[Photo] = Relationship(back_populates="albums", link_model=AlbumPhotoLink)
+
     event: "Event" = Relationship(back_populates="albums")
     cover: Photo = Relationship()
 
-    photos: List[Photo] = Relationship(back_populates="albums", link_model=AlbumPhotoLink)
 
     @property
     def photos_count(self):
