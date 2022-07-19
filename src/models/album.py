@@ -51,6 +51,7 @@ class AlbumReadList(AlbumBase):
     id: str
     photos_count: int
     cover_photo: Optional[PhotoReadSingleStub]
+    hidden_secret: Optional[str]
 
 
 class AlbumReadSingleStub(AlbumReadList):
