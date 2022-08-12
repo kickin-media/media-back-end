@@ -29,30 +29,29 @@ class S3PhotoHandler(Stack):
         execution_role = iam.Role(
             self, "LambdaExectionRole",
             role_name=f"media-photo-processing-{stage}-execution-role",
-            assumed_by=iam.ServicePrincipal('lambda.amazonaws.com'),
-            inline_policies=[
-                iam.PolicyDocument(
-                    statements=[
-                        iam.PolicyStatement(
-                            actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
-                            effect=iam.Effect.ALLOW,
-                            resources=["*"]
-                        ),
-                        iam.PolicyStatement(
-                            actions=["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage",
-                                     "sqs:GetQueueAttributes"],
-                            effect=iam.Effect.ALLOW,
-                            resources=[self.sqs_queue.queue_arn]
-                        ),
-                        iam.PolicyStatement(
-                            effect=iam.Effect.ALLOW,
-                            actions=["s3:PutObject", "s3:GetObject", "s3:HeadObject", "s3:DeleteObject"],
-                            resources=[f"arn:aws:s3:::{photo_bucket_name}/*"]
-                        )
-                    ]
+            assumed_by=iam.ServicePrincipal('lambda.amazonaws.com')
+        )
+
+        execution_role.attach_inline_policy(iam.Policy(self, "LambdaExecutionRolePolicy",
+            statements=[
+                iam.PolicyStatement(
+                    actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+                    effect=iam.Effect.ALLOW,
+                    resources=["*"]
+                ),
+                iam.PolicyStatement(
+                    actions=["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage",
+                             "sqs:GetQueueAttributes"],
+                    effect=iam.Effect.ALLOW,
+                    resources=[self.sqs_queue.queue_arn]
+                ),
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=["s3:PutObject", "s3:GetObject", "s3:HeadObject", "s3:DeleteObject"],
+                    resources=[f"arn:aws:s3:::{photo_bucket_name}/*"]
                 )
             ]
-        )
+        ))
 
         # Processing Lambda
 

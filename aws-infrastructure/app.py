@@ -5,6 +5,7 @@ from components.photo_s3_bucket import S3PhotoBucket
 from components.frontend_s3_bucket import S3FrontendBucket
 from components.photo_handler import S3PhotoHandler
 from components.dns_zone import MediaDNSZone
+from components.mysql_backup_bucket import S3BackupBucket
 
 MEDIA_ACCOUNT_ID = "990658861879"
 MEDIA_ACCOUNT_REGION = "eu-west-1"
@@ -21,6 +22,11 @@ stages = ['dev', 'prod']
 
 dns_stack = MediaDNSZone(
     app, 'media-hosted-zone', zone_name=MEDIA_DNS_NAME,
+    env=cdk.Environment(account=MEDIA_ACCOUNT_ID, region=MEDIA_ACCOUNT_REGION)
+)
+
+backup_stack = S3BackupBucket(
+    app, 'db-backup-bucket', bucket_name='kickin-media-db-backup',
     env=cdk.Environment(account=MEDIA_ACCOUNT_ID, region=MEDIA_ACCOUNT_REGION)
 )
 
