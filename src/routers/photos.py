@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 from typing import List
 
 from models.photo import Photo, OriginalPhotoDownload, PhotoUploadResponse, PhotoReadSingle, PhotoReadSingleStub, \
-    PhotoStream, PhotoReadList
+    PhotoStream
 from models.author import Author
 from models.album import Album
 from models.event import EventReadSingle

@@ -26,11 +26,3 @@ class AuthorCreate(AuthorBase):
 class AuthorReadSingle(AuthorBase):
     id: str
     photos_count: int
-
-    # This should be fixed later on, but for now it throws an error I haven't yet been able to solve.
-    class Photo(SQLModel):
-        id: str
-        timestamp: Optional[datetime.datetime]
-        img_urls: dict
-
-    photos: List[Photo]
