@@ -82,6 +82,21 @@ class S3PhotoBucket(Stack):
             ]
         )
 
+        cloudfront_cors_headers_policy = cloudfront.ResponseHeadersPolicy(
+            self, "ResponseHeadersPolicy",
+            response_headers_policy_name=f"MediaCorsResponseHeadersPolicy-{stage}",
+            comment="Policy to ensure CORS headers are always passed on photos, even if they're cached without.",
+            cors_behavior=cloudfront.ResponseHeadersCorsBehavior(
+                access_control_allow_credentials=True,
+                access_control_allow_headers=["Authorization"],
+                access_control_allow_methods=["GET","POST"],
+                access_control_allow_origins=bucket_cors_hostnames,
+                access_control_expose_headers=[],
+                access_control_max_age=Duration.minutes(10),
+                origin_override=False
+            )
+        )
+
         # Bucket Upload User
 
         upload_user = iam.User(
