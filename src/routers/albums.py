@@ -40,7 +40,7 @@ async def get_album(album_id: str, secret: str = None, db: Session = Depends(get
     # Determine if we can show the photos in this album if it's a timed album.
     if album.release_time is not None:
         if not include_hidden:
-            if datetime.datetime.utcnow() < album.release_time:
+            if datetime.datetime.now() < album.release_time:
                 album.photos = []
 
     # Determine if we can show this album at all if it's a hidden album.

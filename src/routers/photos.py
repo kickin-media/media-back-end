@@ -62,7 +62,7 @@ async def get_event_photo_stream(page: int = 0, order: str = 'desc', sort_by: st
             if album.hidden_secret is None:
                 visible = True
                 break
-            if album.release_time is None or datetime.datetime.utcnow() > album.release_time:
+            if album.release_time is None or datetime.datetime.now() > album.release_time:
                 visible = True
                 break
         if visible:
@@ -228,7 +228,7 @@ async def create_upload(num_uploads: int = 1,
         photo = Photo(
             id=photo_id,
             secret=photo_secret,
-            uploaded_at=datetime.datetime.utcnow(),
+            uploaded_at=datetime.datetime.now(),
             upload_processed=False,
             author_id=author_id,
             exif_update_secret=exif_update_secret
