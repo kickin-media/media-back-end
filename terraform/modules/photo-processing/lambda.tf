@@ -3,8 +3,6 @@ locals {
 }
 
 resource "aws_lambda_function" "processing_lambda" {
-  depends_on = [data.archive_file.processing_lambda_source]
-
   function_name = "photo-processing-lambda-${var.stage}"
   role          = aws_iam_role.lambda-execution-role.arn
   handler       = "index.process"
@@ -12,7 +10,8 @@ resource "aws_lambda_function" "processing_lambda" {
   memory_size   = 2048
   timeout       = 30
 
-  filename = local.lambda_location
+  filename         = local.lambda_location
+  source_code_hash = data.archive_file.processing_lambda_source.output_base64sha256
 }
 
 data "archive_file" "processing_lambda_source" {
