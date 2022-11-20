@@ -3,11 +3,11 @@ name: Infrastructure and App Deployment
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - .github/workflows/deploy-infra.yaml
       - terraform/**
-  pull_requests:
+  pull_request:
     paths:
       - .github/workflows/deploy-infra.yaml
       - terraform/**
@@ -28,13 +28,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Install Prerequisites
+      - name: Install Lambda Prerequisites
         run: pip install -r requirements.txt -t .
         working-directory: lambdas/photo-processing-lambda
-
-      - name: Terraform Format
-        id: fmt
-        run: terraform -chdir="./terraform" fmt -check -diff
 
       - name: Terraform Init
         id: init
@@ -50,24 +46,23 @@ jobs:
         continue-on-error: true
 
       - name: Update Pull Request
-        uses: actions/github-script@0.9.0
+        uses: actions/github-script@v4
         if: github.event_name == 'pull_request' && github.base_ref == github.event.repository.default_branch
         env:
-          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+          PLAN: "${{ steps.plan.outputs.stderr }}\n${{ steps.plan.outputs.stdout }}"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const output = `#### Environment: ${{ matrix.environment }}
-            #### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
-            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
-            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
-            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
-            <details><summary>Show Plan</summary>
-            \`\`\`\n
+            const output = `- **Terraform formatting and style 🖌 \`${{ steps.fmt.outcome }}\`**
+            - **Terraform initialization ⚙️ \`${{ steps.init.outcome }}\`**
+            - **Terraform plan 📖 \`${{ steps.plan.outcome }}\`**
+            - **Terraform validation 🤖 \`${{ steps.validate.outcome }}\`**
+            <details><summary>Show plan output</summary>
+            \`\`\`
             ${process.env.PLAN}
             \`\`\`
             </details>
-            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            *Pushed by: @${{ github.actor }}*`;
             github.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -81,6 +76,5 @@ jobs:
 
       - name: Terraform Apply
         id: apply
-        if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        if: steps.plan.outcome == 'success'
+        if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && steps.plan.outcome != 'failure'
         run: terraform -chdir="./terraform" apply -auto-approve
