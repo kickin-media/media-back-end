@@ -1,38 +1,86 @@
-name: Deploy Infrastructure
+name: Infrastructure and App Deployment
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
     paths:
       - .github/workflows/deploy-infra.yaml
-      - aws-infrastructure/**
+      - terraform/**
+  pull_requests:
+    paths:
+      - .github/workflows/deploy-infra.yaml
+      - terraform/**
+  workflow_dispatch:
 
 jobs:
 
   deploy-infrastructure:
-    name: Deploy infrastructure to AWS
+    name: Terraform Deployment
     runs-on: ubuntu-latest
+
+    env:
+      # These two are different per environment. Credentials for the Terraform CICD AWS user.
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_CICD_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_CICD_ACCESS_KEY_SECRET }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
       - name: Install Prerequisites
-        run: |
-          cd aws-infrastructure
-          sudo npm install -g aws-cdk@latest
-          cdk --version
-          pip install -r requirements.txt
-          cd components/photo-processing-lambda
-          pip install -r requirements.txt -t .
+        run: pip install -r requirements.txt -t .
+        working-directory: lambdas/photo-processing-lambda
 
-      # Build and Deploy CDK application
-      - name: Build & Deploy
-        run: |
-          cd aws-infrastructure
-          cdk bootstrap
-          cdk deploy --all --require-approval never
+      - name: Terraform Format
+        id: fmt
+        run: terraform -chdir="./terraform" fmt -check -diff
+
+      - name: Terraform Init
+        id: init
+        run: terraform -chdir="./terraform" init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform -chdir="./terraform" validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform -chdir="./terraform" plan -no-color -lock=false
+        continue-on-error: true
+
+      - name: Update Pull Request
+        uses: actions/github-script@0.9.0
+        if: github.event_name == 'pull_request' && github.base_ref == github.event.repository.default_branch
         env:
-            AWS_DEFAULT_REGION: eu-west-1
-            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_CICD_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_CICD_ACCESS_KEY_SECRET }}
+          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Environment: ${{ matrix.environment }}
+            #### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+            <details><summary>Show Plan</summary>
+            \`\`\`\n
+            ${process.env.PLAN}
+            \`\`\`
+            </details>
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Terraform Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+      - name: Terraform Apply
+        id: apply
+        if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        if: steps.plan.outcome == 'success'
+        run: terraform -chdir="./terraform" apply -auto-approve

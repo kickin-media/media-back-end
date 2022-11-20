@@ -9,18 +9,6 @@ import json
 import requests
 
 
-def push_back(record):
-    sqs = boto3.client('sqs')
-    queue_url = sqs.get_queue_url(
-        QueueName=record['eventSourceARN'].split(":")[-1]
-    )
-    sqs.send_message(
-        QueueUrl=queue_url['QueueUrl'],
-        MessageBody=record['body'],
-        DelaySeconds=60,
-    )
-
-
 def process(event, context):
     for record in event['Records']:
         process_message = json.loads(record["body"])
@@ -35,16 +23,7 @@ def process(event, context):
             }
             process_metadata = process_message['data']
         except Exception as err:
-            print(f"Message could not be evaluated: {record['body']}")
-            return
-
-        if process_metadata['TTL'] <= 0:
-            print(f"Message TTL reached 0, dropping message: {record['body']}")
-            return
-        else:
-            process_message['data']['TTL'] -= 1
-            print(f"Message TTL lowered to {process_message['data']['TTL']}")
-            record['body'] = json.dumps(process_message)
+            raise Exception(f"Message could not be evaluated: {record['body']}")
 
         print(f"Processing upload {photo_data['id']}...")
 
@@ -87,15 +66,9 @@ def process(event, context):
         photo_event_data = json.loads(photo_event_data.content)
         if 'detail' in photo_event_data.keys():
             if photo_event_data['detail'] == 'photo_not_in_album':
-                print("Upload not yet assigned to album. Pushing event back on queue.")
-                push_back(record)
-                print("Done. Stop processing this event.")
-                continue
+                raise Exception("Upload not yet assigned to album.")
             else:
-                print("Could not determine photo event link. Pushing event back on queue.")
-                push_back(record)
-                print("Done. Stop processing this event.")
-                continue
+                raise Exception("Could not determine photo event link.")
         else:
             photo_event_id = photo_event_data['id']
 
@@ -107,10 +80,7 @@ def process(event, context):
             photo_object.download_fileobj(photo_stream)
         except botocore.exceptions.ClientError as err:
             if 'Not Found' in str(err):
-                print("Upload not yet found. Pushing event back on queue.")
-                push_back(record)
-                print("Done. Stop processing this event.")
-                continue
+                raise Exception("Upload not yet found.")
             else:
                 raise err
         original_image = Image.open(photo_stream)
@@ -183,10 +153,7 @@ def process(event, context):
                 watermark_image = Image.open(watermark_stream)
             except botocore.exceptions.ClientError as err:
                 if 'Not Found' in str(err):
-                    print("No watermark found. Pushing event back on queue.")
-                    push_back(record)
-                    print("Done. Stop processing this event.")
-                    continue
+                    raise Exception("No watermark found. Pushing event back on queue.")
                 else:
                     raise err
 
@@ -264,10 +231,7 @@ def process(event, context):
         callback_data = json.loads(callback.content)
 
         if callback.status_code != 200:
-            print("Could not notify API of processing. Pushing event back on the queue.")
-            push_back(record)
-            print("Done. Stop processing this event.")
-            continue
+            raise Exception("Could not notify API of processing.")
 
         # Remove upload.
         if photo_data['delete_upload']:
