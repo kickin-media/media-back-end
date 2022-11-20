@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Terraform Bootstrapping Stack
+
+Resources:
+
+  TerraformS3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub 'media-${AWS::AccountId}-terraform-state'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+  TerraformBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref TerraformS3Bucket
+      PolicyDocument:
+        Statement:
+        - Sid: Deny deletion of objects
+          Effect: Deny
+          Principal: "*"
+          Action:
+            - "s3:DeleteObject"
+          Resource: !Join [ '/', [ !GetAtt TerraformS3Bucket.Arn, '*' ] ]
+        - Sid: Deny requests that do not use TLS
+          Effect: Deny
+          Principal: '*'
+          Action:
+            - "s3:*"
+          Resource: !Join [ '/', [ !GetAtt TerraformS3Bucket.Arn, '*' ] ]
+          Condition:
+            Bool:
+              'aws:SecureTransport': 'false'
+        - Sid: Deny object uploads not using default encryption settings
+          Effect: Deny
+          Principal: '*'
+          Action:
+            - "s3:PutObject"
+          Resource: !Join [ '/', [ !GetAtt TerraformS3Bucket.Arn, '*' ] ]
+          Condition:
+            'Null':
+              s3:x-amz-server-side-encryption: false
+            StringNotEqualsIfExists:
+              s3:x-amz-server-side-encryption:
+                - 'AES256'
+                - 'aws:kms'
+
+  TerraformDynamoDB:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: !Sub "media-${AWS::AccountId}-terraform-locktable"
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      AttributeDefinitions:
+        - AttributeName: LockID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: LockID
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+
+  TerraformCICDUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: media-terraform-cicd-user
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
