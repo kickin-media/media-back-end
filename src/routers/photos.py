@@ -54,7 +54,7 @@ async def get_event_photo_stream(timestamp: str = None, direction: str = 'older'
     else:
         raise HTTPException(status_code=400, detail="invalid_sort_by")
 
-    photostream_statement = select(Photo).where(Photo.upload_processed == 1)
+    photostream_statement = select(Photo)
 
     if direction == 'older':
         photostream_statement = photostream_statement.where(sorting_key <= timestamp). \
