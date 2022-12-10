@@ -72,7 +72,7 @@ class PhotoReadList(PhotoBase):
     uploaded_at: datetime.datetime
 
 
-class PhotoStream(PhotoBase):
+class PhotoStream(SQLModel):
     photos: List[PhotoReadList]
 
 
