@@ -74,6 +74,8 @@ class PhotoReadList(PhotoBase):
 
 class PhotoStream(SQLModel):
     photos: List[PhotoReadList]
+    next_photo_id: str
+    next_timestamp: str
 
 
 class PhotoReadSingleStub(PhotoReadList):

@@ -29,7 +29,8 @@ router = APIRouter(
 
 
 @router.get("/stream", response_model=PhotoStream)
-async def get_event_photo_stream(timestamp: str = None, direction: str = 'older', sort_by: str = 'uploaded',
+async def get_event_photo_stream(timestamp: str = None, photo_id_start: str = 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+                                 direction: str = 'older', sort_by: str = 'uploaded',
                                  db: Session = Depends(get_db)):
     page_size = 50
 
@@ -52,26 +53,34 @@ async def get_event_photo_stream(timestamp: str = None, direction: str = 'older'
     elif sort_by == 'uploaded':
         sorting_key = Photo.uploaded_at
     else:
+        # if you add extra cases, don't forget to also change the if-else statement
+        # in the `for photo in photostream_results` loop
         raise HTTPException(status_code=400, detail="invalid_sort_by")
 
     photostream_statement = select(Photo)
 
     if direction == 'older':
-        photostream_statement = photostream_statement.where(sorting_key <= timestamp). \
-            order_by(sorting_key.desc()).limit(page_size)
+        photostream_statement = photostream_statement. \
+            where((sorting_key < timestamp) | ((sorting_key == timestamp) & (Photo.id < photo_id_start))). \
+            order_by(sorting_key.desc()).order_by(Photo.id.desc()).limit(page_size)
     elif direction == 'newer':
-        photostream_statement = photostream_statement.where(sorting_key >= timestamp). \
-            order_by(sorting_key.asc()).limit(page_size)
+        photostream_statement = photostream_statement. \
+            where((sorting_key > timestamp) | ((sorting_key == timestamp) & (Photo.id < photo_id_start))). \
+            order_by(sorting_key.asc()).order_by(Photo.id.desc()).limit(page_size)
     else:
         raise HTTPException(status_code=400, detail="invalid_direction")
 
     photostream_results = db.exec(photostream_statement)
 
     photostream_response = PhotoStream(
-        photos=[]
+        photos=[],
+        next_timestamp="",
+        next_photo_id=""
     )
 
     for photo in photostream_results:
+        photostream_response.next_timestamp = str(photo.timestamp if sort_by == 'taken' else photo.uploaded_at)
+        photostream_response.next_photo_id = photo.id
         visible = True
         for album in photo.albums:
             if album.hidden_secret is None:
@@ -87,6 +96,8 @@ async def get_event_photo_stream(timestamp: str = None, direction: str = 'older'
             photo_with_urls = photo.dict()
             photo_with_urls['img_urls'] = photo.img_urls
             photostream_response.photos.append(photo_with_urls)
+
+    photostream_response.next_photo_id = photostream_response.next_photo_id.split("-")[0]
 
     return photostream_response
 
@@ -290,7 +301,9 @@ async def replace_albums(photo_id: str,
             raise HTTPException(status_code=404, detail="album_not_found_{}".format(album_id))
         if album.id not in current_album_ids:
             if album.event.locked:
-                raise HTTPException(status_code=403, detail="cannot_add_to_album_{album_id}_event_{event_id}_locked".format(album_id=album.id, event_id=album.event.id))
+                raise HTTPException(status_code=403,
+                                    detail="cannot_add_to_album_{album_id}_event_{event_id}_locked".format(
+                                        album_id=album.id, event_id=album.event.id))
         albums.append(album)
 
     for album in photo.albums:
