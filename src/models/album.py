@@ -16,6 +16,7 @@ class AlbumBase(SQLModel):
     release_time: Optional[datetime.datetime] = None
     event_id: str = Field(foreign_key="events.id")
     cover_id: str = Field(foreign_key="photos.id", nullable=True, default=None)
+    views: int
 
 
 class Album(AlbumBase, table=True):
@@ -68,7 +69,6 @@ class AlbumReadSingleStub(AlbumReadList):
 class AlbumReadSingle(AlbumReadSingleStub):
     photos: List[PhotoReadSingleStub]
     hidden_secret: Optional[str]
-
 
 class AlbumSetSecretStatus(SQLModel):
     is_secret: bool

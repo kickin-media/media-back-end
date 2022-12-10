@@ -334,3 +334,18 @@ async def delete_photo(photo_id: str,
     db.commit()
 
     raise HTTPException(status_code=200, detail="photo_deleted")
+
+
+@router.put("/{photo_id}/view")
+async def increase_viewcount(photo_id: str,
+                          db: Session = Depends(get_db)):
+    photo = db.get(Photo, photo_id)
+
+    if photo is None:
+        raise HTTPException(status_code=404, detail="photo_not_found")
+
+    photo.views += 1
+    db.add(photo)
+    db.commit()
+
+    raise HTTPException(status_code=200, detail="success")

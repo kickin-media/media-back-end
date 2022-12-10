@@ -13,7 +13,7 @@ import datetime
 
 
 class PhotoBase(SQLModel):
-    pass
+    views: int
 
 
 class PhotoImgUrls(SQLModel):

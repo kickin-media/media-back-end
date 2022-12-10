@@ -1,1 +1,4 @@
-Generic single-database configuration.
+Create empty migration:
+```
+alembic revision -m "description"
+```
