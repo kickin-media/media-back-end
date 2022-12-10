@@ -2,6 +2,7 @@ import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from auth.auth_bearer import JWTBearer
+from dateutil import parser
 
 from database import get_db
 from sqlmodel import Session, select
@@ -19,6 +20,7 @@ from variables import S3_BUCKET, S3_UPLOAD_EXPIRY, S3_BUCKET_UPLOAD_PATH, S3_BUC
 import boto3
 import uuid
 import json
+import re
 
 router = APIRouter(
     prefix="/photo",
@@ -27,10 +29,23 @@ router = APIRouter(
 
 
 @router.get("/stream", response_model=PhotoStream)
-async def get_event_photo_stream(page: int = 0, order: str = 'desc', sort_by: str = 'uploaded',
+async def get_event_photo_stream(timestamp: str = None, direction: str = 'older', sort_by: str = 'uploaded',
                                  db: Session = Depends(get_db)):
-
     page_size = 50
+
+    datetime_pattern = r"[0-9]{4}\-[0-9]{2}\-[0-9]{2}\s[0-2][0-9]:[0-5][0-9]:[0-5][0-9]"
+    datetime_regex = re.compile(datetime_pattern)
+    unix_pattern = r"[0-9]+"
+    unix_regex = re.compile(unix_pattern)
+
+    if timestamp is None:
+        timestamp = datetime.datetime.now()
+    elif re.fullmatch(datetime_regex, timestamp):
+        timestamp = parser.parse(timestamp)
+    elif re.fullmatch(unix_regex, timestamp):
+        timestamp = datetime.datetime.fromtimestamp(int(timestamp))
+    else:
+        raise HTTPException(status_code=400, detail="invalid_timestamp")
 
     if sort_by == 'taken':
         sorting_key = Photo.timestamp
@@ -39,20 +54,20 @@ async def get_event_photo_stream(page: int = 0, order: str = 'desc', sort_by: st
     else:
         raise HTTPException(status_code=400, detail="invalid_sort_by")
 
-    if order == 'desc':
-        sorting_key = sorting_key.desc()
-    elif order == 'asc':
-        sorting_key = sorting_key.asc()
-    else:
-        raise HTTPException(status_code=400, detail="invalid_order")
+    photostream_statement = select(Photo).where(Photo.upload_processed == 1)
 
-    photostream_statement = select(Photo).order_by(sorting_key).limit(page_size).offset(
-        page * page_size).where(
-        Photo.upload_processed == 1)
+    if direction == 'older':
+        photostream_statement = photostream_statement.where(sorting_key <= timestamp). \
+            order_by(sorting_key.desc()).limit(page_size)
+    elif direction == 'newer':
+        photostream_statement = photostream_statement.where(sorting_key >= timestamp). \
+            order_by(sorting_key.asc()).limit(page_size)
+    else:
+        raise HTTPException(status_code=400, detail="invalid_direction")
+
     photostream_results = db.exec(photostream_statement)
 
     photostream_response = PhotoStream(
-        page=page,
         photos=[]
     )
 

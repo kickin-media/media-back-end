@@ -73,7 +73,6 @@ class PhotoReadList(PhotoBase):
 
 
 class PhotoStream(PhotoBase):
-    page: int
     photos: List[PhotoReadList]
 
 
