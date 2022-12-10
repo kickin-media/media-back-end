@@ -282,11 +282,15 @@ async def replace_albums(photo_id: str,
     if photo.author.id != auth_data['sub'] and 'photos:manage_other' not in auth_data['permissions']:
         raise HTTPException(status_code=403, detail="can_only_manage_own_photos")
 
+    current_album_ids = [album.id for album in photo.albums]
     albums = []
     for album_id in album_ids:
         album = db.get(Album, album_id)
         if album is None:
             raise HTTPException(status_code=404, detail="album_not_found_{}".format(album_id))
+        if album.id not in current_album_ids:
+            if album.event.locked:
+                raise HTTPException(status_code=403, detail="cannot_add_to_album_{album_id}_event_{event_id}_locked".format(album_id=album.id, event_id=album.event.id))
         albums.append(album)
 
     for album in photo.albums:
@@ -338,7 +342,7 @@ async def delete_photo(photo_id: str,
 
 @router.put("/{photo_id}/view")
 async def increase_viewcount(photo_id: str,
-                          db: Session = Depends(get_db)):
+                             db: Session = Depends(get_db)):
     photo = db.get(Photo, photo_id)
 
     if photo is None:

@@ -9,6 +9,7 @@ from models.album import Album, AlbumReadList, AlbumReadSingleStub
 class EventBase(SQLModel):
     name: str
     timestamp: datetime.datetime
+    locked: bool
 
 
 class Event(EventBase, table=True):
