@@ -13,7 +13,7 @@ import datetime
 
 
 class PhotoBase(SQLModel):
-    views: int
+    pass
 
 
 class PhotoImgUrls(SQLModel):
@@ -39,6 +39,8 @@ class Photo(PhotoBase, table=True):
     author: Author = Relationship(back_populates="photos")
 
     albums: List["Album"] = Relationship(back_populates="photos", link_model=AlbumPhotoLink)
+
+    views: int = Field(default=0)
 
     @property
     def exif(self):
@@ -70,6 +72,7 @@ class PhotoReadList(PhotoBase):
     img_urls: PhotoImgUrls
     upload_processed: bool
     uploaded_at: datetime.datetime
+    views: int
 
 
 class PhotoStream(SQLModel):
