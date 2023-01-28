@@ -83,7 +83,7 @@ class PhotoReadSingleStub(PhotoReadList):
 
 
 class PhotoReadSingle(PhotoReadSingleStub):
-    # exif: dict
+    exif: dict
 
     # This should be fixed later on, but for now it throws an error I haven't yet been able to solve.
     class Album(SQLModel):
