@@ -28,6 +28,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      # The Python version here NEEDS to be consistent with the one used in the photo processing Lambda.
+      # Otherwise the PIL library will start complaining.
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
+
+      - name: Debug pip and Python version
+        run: pip --version
+        working-directory: lambdas/photo-processing-lambda
+
       - name: Install Lambda Prerequisites
         run: pip install -r requirements.txt -t .
         working-directory: lambdas/photo-processing-lambda
