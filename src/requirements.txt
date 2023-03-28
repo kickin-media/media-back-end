@@ -4,7 +4,7 @@ sqlalchemy==1.4.35
 sqlmodel==0.0.8
 pymysql==1.0.2
 alembic==1.8.0
-PyJWT[crypto]==2.4.0
+PyJWT[crypto]==2.6.0
 boto3==1.26.100
 fastapi-utils==0.2.1
 Pillow==9.3.0
