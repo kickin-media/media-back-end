@@ -1,0 +1,10 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/src"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/lambdas/photo-processing-lambda"
+    schedule:
+      interval: "weekly"
