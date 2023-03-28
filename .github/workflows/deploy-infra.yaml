@@ -28,6 +28,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Debug pip and Python version
+        run: pip --version
+        working-directory: lambdas/photo-processing-lambda
+
       - name: Install Lambda Prerequisites
         run: pip install -r requirements.txt -t .
         working-directory: lambdas/photo-processing-lambda
