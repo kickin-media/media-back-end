@@ -20,7 +20,7 @@ resource "aws_route53_record" "aws_server_record" {
   zone_id = aws_route53_zone.media_zone.id
   ttl     = 300
   records = [
-    "34.244.161.121"
+    "54.78.176.227"
   ]
 }
 resource "aws_route53_record" "aws_server_record_wildcard" {
@@ -29,7 +29,7 @@ resource "aws_route53_record" "aws_server_record_wildcard" {
   zone_id = aws_route53_zone.media_zone.id
   ttl     = 300
   records = [
-    "34.244.161.121"
+    "54.78.176.227"
   ]
 }
 
