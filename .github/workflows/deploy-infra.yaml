@@ -7,10 +7,12 @@ on:
     paths:
       - .github/workflows/deploy-infra.yaml
       - terraform/**
+      - lambdas/**
   pull_request:
     paths:
       - .github/workflows/deploy-infra.yaml
       - terraform/**
+      - lambdas/**
   workflow_dispatch:
 
 jobs:
@@ -28,11 +30,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      # The Python version here NEEDS to be consistent with the one used in the photo processing Lambda.
-      # Otherwise the PIL library will start complaining.
-      - uses: actions/setup-python@v4
+      # To prevent vague errors, this version needs to be identical to the version of the processing Lambda.
+      - name: Set-up Python version
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.8'
 
       - name: Debug pip and Python version
         run: pip --version
