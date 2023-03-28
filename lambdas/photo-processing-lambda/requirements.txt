@@ -1,4 +1,7 @@
+# Pillow is required, but not installed using pip. Instead, it's added as a Lambda layer in Terraform because otherwise
+# getting it to work in Lambda is a pain. Uncomment the line below for local developing.
+# Pillow==9.4.0
+
 boto3==1.26.100
-Pillow==9.4.0
 exif==1.6.0
 requests==2.28.2
