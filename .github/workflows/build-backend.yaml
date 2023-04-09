@@ -6,10 +6,12 @@ on:
     paths:
       - .github/workflows/build-backend.yaml
       - src/**
+      - Dockerfile
   pull_request:
     paths:
       - .github/workflows/build-backend.yaml
       - src/**
+      - Dockerfile
 
 jobs:
 
