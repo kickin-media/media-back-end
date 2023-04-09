@@ -225,7 +225,7 @@ async def reprocess_photo(photo_id: str,
 
     original_path = "/".join([S3_BUCKET_ORIGINAL_PATH, "{}_o.jpg".format(photo.id)])
 
-    trigger_photo_process(photo=photo, author=photo.author, exif_update_secret=exif_update_secret, delete_upload=True,
+    trigger_photo_process(photo=photo, author=photo.author, exif_update_secret=exif_update_secret, delete_upload=False,
                           source_path=original_path, delay_seconds=0, ttl=5)
 
     raise HTTPException(status_code=200, detail="scheduled")
