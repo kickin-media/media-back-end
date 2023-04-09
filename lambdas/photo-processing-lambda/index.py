@@ -235,7 +235,10 @@ def process(event, context):
 
         # Remove upload.
         if photo_data['delete_upload']:
+            print("Removing original.")
             s3.delete_object(Bucket=process_metadata['S3_BUCKET'], Key=source_location)
+        else:
+            print("Leaving original in place.")
 
         print("Done!")
 
