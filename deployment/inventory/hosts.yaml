@@ -1,0 +1,4 @@
+all:
+  hosts:
+    aws.kick-in.media:
+      ansible_user: ec2-user

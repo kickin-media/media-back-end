@@ -3,4 +3,3 @@ venv
 *-venv
 __pycache__
 .DS_STORE
-docker-compose.server.yaml
