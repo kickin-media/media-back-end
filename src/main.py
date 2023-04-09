@@ -3,11 +3,8 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from prometheus_fastapi_instrumentator import Instrumentator
-
 import variables
 from routers import system, events, albums, photos, author
-
 
 app_environment = os.getenv('ENVIRONMENT', None)
 if app_environment is None:
@@ -17,8 +14,6 @@ if app_environment not in variables.VALID_APP_ENVIRONMENTS:
         variables.VALID_APP_ENVIRONMENTS)))
 
 api = FastAPI()
-
-Instrumentator().instrument(api).expose(api)
 
 # Add CORS middleware
 api.add_middleware(
