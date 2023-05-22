@@ -3,7 +3,7 @@ uvicorn==0.22.0
 sqlalchemy==1.4.41
 sqlmodel==0.0.8
 pymysql==1.0.3
-alembic==1.10.2
+alembic==1.11.1
 PyJWT[crypto]==2.7.0
 boto3==1.26.109
 fastapi-utils==0.2.1
