@@ -14,15 +14,6 @@ resource "aws_subnet" "media_subnet" {
   }
 }
 
-resource "aws_db_subnet_group" "default" {
-  name       = "media-db-subnet"
-  subnet_ids = [aws_subnet.media_subnet.id]
-
-  tags = {
-    Name = "Media Server DB Subnet Group"
-  }
-}
-
 resource "aws_internet_gateway" "media_igw" {
   vpc_id = aws_vpc.media_vpc.id
 
