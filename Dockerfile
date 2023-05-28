@@ -15,7 +15,7 @@ RUN export PATH="$PATH:/media-backend"
 
 CMD ["./start.sh"]
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s \
-  CMD curl -f http://localhost:80/status || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s \
+  CMD curl -f http://localhost:80/status
 
 EXPOSE 80/tcp
