@@ -110,6 +110,8 @@ class PhotoReadSingle(PhotoReadSingleStub):
     # albums: List["AlbumReadList"]
 
     gps_thumb: Optional[str]
+    gps_lat: Optional[float]
+    gps_lon: Optional[float]
 
 
 class PhotoUploadPreSignedUrlFields(SQLModel):
