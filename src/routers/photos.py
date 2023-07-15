@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 from typing import List
 
 from models.photo import Photo, OriginalPhotoDownload, PhotoUploadResponse, PhotoReadSingle, PhotoReadSingleStub, \
-    PhotoStream
+    PhotoStream, PhotoReadList
 from models.author import Author
 from models.album import Album
 from models.event import EventReadSingle
@@ -102,6 +102,13 @@ async def get_event_photo_stream(timestamp: str = None, photo_id_start: str = 'f
     return photostream_response
 
 
+@router.get("/unprocessed", response_model=List[PhotoReadList],
+            dependencies=[Depends(JWTBearer(required_permissions=['system:admin']))])
+async def get_unprocessed_photos(db: Session = Depends(get_db)):
+    photos = db.query(Photo).filter(Photo.upload_processed == False).all()
+    return [p for p in photos]
+
+
 @router.get("/{photo_id}", response_model=PhotoReadSingle)
 async def get_photo(photo_id: str,
                     db: Session = Depends(get_db)):
@@ -171,6 +178,25 @@ async def get_original_photo(photo_id: str,
     download_params = {
         'Bucket': S3_BUCKET,
         'Key': "/".join([S3_BUCKET_ORIGINAL_PATH, "{}_o.jpg".format(photo.id)])
+    }
+    download_url = boto3.client('s3').generate_presigned_url('get_object',
+                                                             Params=download_params,
+                                                             ExpiresIn=300)
+
+    return OriginalPhotoDownload(download_url=download_url)
+
+
+@router.get("/{photo_id}/original_upload", response_model=OriginalPhotoDownload,
+            dependencies=[Depends(JWTBearer(required_permissions=['system:admin']))])
+async def get_original_photo_upload(photo_id: str, db: Session = Depends(get_db)):
+    photo = db.get(Photo, photo_id)
+
+    if photo is None:
+        raise HTTPException(status_code=404, detail="photo_not_found")
+
+    download_params = {
+        'Bucket': S3_BUCKET,
+        'Key': "/".join([S3_BUCKET_UPLOAD_PATH, photo.secret, "{}.jpg".format(photo.id)])
     }
     download_url = boto3.client('s3').generate_presigned_url('get_object',
                                                              Params=download_params,
