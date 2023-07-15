@@ -125,6 +125,27 @@ def process(event, context):
             original_exif_data = original_image.info['exif']
         print("Done.")
 
+        # Extra GPS location if available
+        print("Extracting GPS information if available.")
+        photo_gps_location = None
+        try:
+            if 'gps_latitude' in exif_data.keys() and 'gps_longitude' in exif_data.keys():
+                # Latitude
+                photo_gps_lat = tuple(map(float, exif_data['gps_latitude'].strip('()').split(',')))
+                photo_gps_lat = photo_gps_lat[0] + (photo_gps_lat[1] / 60) + (photo_gps_lat[2] / 3600)
+
+                # Longitude
+                photo_gps_lon = tuple(map(float, exif_data['gps_longitude'].strip('()').split(',')))
+                photo_gps_lon = photo_gps_lon[0] + (photo_gps_lon[1] / 60) + (photo_gps_lon[2] / 3600)
+
+                photo_gps_location = (photo_gps_lat, photo_gps_lon)
+            else:
+                print("No GPS information available in photo. This is ok. Continuing.")
+
+        except Exception:
+            print("Could not extract GPS coordinates. Ignoring.")
+            photo_gps_location = None
+
         # Process Image
         image = original_image.copy()
 
@@ -225,7 +246,8 @@ def process(event, context):
             url="/".join(
                 [process_metadata['API_BASE'], 'photo', photo_data['id'], 'exif', photo_data['update_secret']]),
             json={
-                'exif_data': exif_data
+                'exif_data': exif_data,
+                'gps_data': photo_gps_location
             }
         )
         callback_data = json.loads(callback.content)

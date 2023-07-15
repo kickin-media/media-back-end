@@ -157,6 +157,10 @@ async def finalize_upload(photo_id: str, photo_exif_secret: str, request_data: d
     if 'datetime_original' in exif_data.keys():
         photo.timestamp = exif_data['datetime_original']
 
+    gps_data = request_data['gps_data']
+    if gps_data is not None:
+        photo.gps_lat, photo.gps_lon = gps_data
+
     db.add(photo)
     db.commit()
 

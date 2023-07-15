@@ -42,6 +42,9 @@ class Photo(PhotoBase, table=True):
 
     views: int = Field(default=0)
 
+    gps_lat: float = Field(default=None)
+    gps_lon: float = Field(default=None)
+
     @property
     def exif(self):
         filtered_exif = {}
