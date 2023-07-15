@@ -7,7 +7,7 @@ from pydantic import validator
 from models.author import Author
 from models.albumphotolink import AlbumPhotoLink
 
-from variables import S3_BUCKET_PHOTO_PATH, S3_PHOTO_HOSTNAME
+from variables import S3_BUCKET_PHOTO_PATH, S3_PHOTO_HOSTNAME, MAPBOX_API_TOKEN
 
 import datetime
 
@@ -68,6 +68,14 @@ class Photo(PhotoBase, table=True):
                 [S3_PHOTO_HOSTNAME, S3_BUCKET_PHOTO_PATH, self.secret, "{}{}.jpg".format(self.id, size_suffix)])
         return url_dict
 
+    @property
+    def gps_thumb(self):
+        if self.gps_lat is not None and self.gps_lon is not None:
+            return "https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+ff2600({lon},{lat})/{lon},{lat},{zoom},0/450x300@2x?access_token={token}".format(
+                token=MAPBOX_API_TOKEN, lat=self.gps_lat, lon=self.gps_lon, zoom=16)
+        else:
+            return None
+
 
 class PhotoReadList(PhotoBase):
     id: str
@@ -100,6 +108,8 @@ class PhotoReadSingle(PhotoReadSingleStub):
 
     albums: List[Album]
     # albums: List["AlbumReadList"]
+
+    gps_thumb: Optional[str]
 
 
 class PhotoUploadPreSignedUrlFields(SQLModel):
