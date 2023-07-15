@@ -73,7 +73,7 @@ async def get_status(db: Session = Depends(get_db)):
     no_photos = db.query(Photo).count()
     status['metrics']['photos']['uploads'] = no_photos
 
-    unprocessed_photos = db.query(Photo).filter(Photo.upload_processed is False).count()
+    unprocessed_photos = db.query(Photo).filter(Photo.upload_processed == False).count()
     status['metrics']['photos']['unprocessed'] = unprocessed_photos
 
     return JSONResponse(status_code=(200 if all(status['status'].values()) else 500), content=status)
