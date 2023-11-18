@@ -3,7 +3,7 @@
   hosts: all
 
   vars:
-    docker_dir: ~/docker_data
+    docker_dir: /srv/media
 
   tasks:
     - name: Copy docker-compose file.
@@ -12,11 +12,11 @@
         dest: '{{ docker_dir }}/docker-compose.yaml'
 
     - name: Pull new image versions.
-      command: sudo docker-compose pull
+      command: docker compose pull
       args:
         chdir: '{{ docker_dir }}'
 
     - name: Apply docker-compose file.
-      command: sudo docker-compose up -d
+      command: docker compose up -d
       args:
         chdir: '{{ docker_dir }}'
