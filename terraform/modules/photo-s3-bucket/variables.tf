@@ -18,11 +18,6 @@ variable "bucket_acm_arn" {
   type        = string
 }
 
-variable "hosted_zone_id" {
-  description = "Hosted Zone to make the CloudFront records in."
-  type        = string
-}
-
 variable "stage" {
   description = "Stage name."
   type        = string

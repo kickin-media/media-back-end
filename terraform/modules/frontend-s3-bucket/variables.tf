@@ -12,8 +12,3 @@ variable "bucket_acm_arn" {
   description = "The ACM ARN of the certificate that will be used for TLS on this bucket."
   type        = string
 }
-
-variable "hosted_zone_id" {
-  description = "Hosted Zone to make the CloudFront records in."
-  type        = string
-}

@@ -8,8 +8,7 @@ module "frontend_bucket" {
     "www.${each.value.base_domain}"
   ]
 
-  bucket_acm_arn = module.media_zone_certificate[each.key].certificate_arn
-  hosted_zone_id = aws_route53_zone.media_zone.zone_id
+  bucket_acm_arn = each.value.certificate_arn
 }
 
 module "processing_queue" {
@@ -31,8 +30,7 @@ module "photo_bucket" {
     "photos.${each.value.base_domain}",
   ]
 
-  bucket_acm_arn = module.media_zone_certificate[each.key].certificate_arn
-  hosted_zone_id = aws_route53_zone.media_zone.zone_id
+  bucket_acm_arn = each.value.certificate_arn
 
   photo_cors_hostnames = setunion(each.value.extra_cors_hostnames, [
   for hostname in module.frontend_bucket[each.key].frontend_hostnames : "https://${hostname}"
