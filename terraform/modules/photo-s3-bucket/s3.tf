@@ -33,9 +33,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "photo_s3_bucket_lifecycle" {
   }
 }
 
-resource "aws_s3_bucket_acl" "photo_s3_bucket_acl" {
-  bucket = aws_s3_bucket.photo_s3_bucket.bucket
-}
 resource "aws_s3_bucket_public_access_block" "photo_s3_bucket_public_acl" {
   bucket                  = aws_s3_bucket.photo_s3_bucket.bucket
   block_public_acls       = true

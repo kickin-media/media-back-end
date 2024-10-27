@@ -15,8 +15,6 @@ module "processing_queue" {
   for_each = var.stages
   source   = "./modules/photo-processing"
 
-  pillow_layer_arn = data.klayers_package_latest_version.pillow.arn
-
   photo_bucket_arn = "arn:aws:s3:::${each.value.photo_bucket_name}"
   stage            = each.key
 }

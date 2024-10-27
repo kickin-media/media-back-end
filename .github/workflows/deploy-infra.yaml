@@ -34,7 +34,7 @@ jobs:
       - name: Set-up Python version
         uses: actions/setup-python@v4
         with:
-          python-version: '3.8'
+          python-version: '3.12'
 
       - name: Debug pip and Python version
         run: pip --version

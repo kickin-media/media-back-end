@@ -6,12 +6,12 @@ resource "aws_lambda_function" "processing_lambda" {
   function_name = "photo-processing-lambda-${var.stage}"
   role          = aws_iam_role.lambda-execution-role.arn
   handler       = "index.process"
-  runtime       = "python3.8"
+  runtime       = "python3.12"
   memory_size   = 2048
   timeout       = 30
 
   layers = [
-    var.pillow_layer_arn
+    "arn:aws:lambda:eu-west-1:770693421928:layer:Klayers-p312-Pillow:3"
   ]
 
   filename         = local.lambda_location
