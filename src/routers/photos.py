@@ -155,7 +155,12 @@ async def finalize_upload(photo_id: str, photo_exif_secret: str, request_data: d
     photo.exif_update_secret = None
 
     if 'datetime_original' in exif_data.keys():
-        photo.timestamp = exif_data['datetime_original']
+        datetime_original = exif_data['datetime_original']
+        try:
+            parsed_datetime = datetime.datetime.strptime(datetime_original, '%Y:%m:%d %H:%M:%S')
+            photo.timestamp = parsed_datetime
+        except (ValueError, TypeError):
+            photo.timestamp = None
 
     gps_data = request_data['gps_data']
     if gps_data is not None:
