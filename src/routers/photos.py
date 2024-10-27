@@ -158,7 +158,7 @@ async def finalize_upload(photo_id: str, photo_exif_secret: str, request_data: d
         datetime_original = exif_data['datetime_original']
         try:
             parsed_datetime = datetime.datetime.strptime(datetime_original, '%Y:%m:%d %H:%M:%S')
-            photo.timestamp = datetime_original
+            photo.timestamp = parsed_datetime
         except (ValueError, TypeError):
             photo.timestamp = None
 
