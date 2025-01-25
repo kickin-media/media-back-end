@@ -36,6 +36,10 @@ jobs:
         with:
           python-version: '3.12'
 
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.10.5'  # Specify the desired version
+
       - name: Debug pip and Python version
         run: pip --version
         working-directory: lambdas/photo-processing-lambda
