@@ -2,6 +2,6 @@
 # getting it to work in Lambda is a pain. Uncomment the line below for local developing.
 # Pillow==10.4.0
 
-boto3==1.36.2
+boto3==1.37.4
 exif==1.6.0
 requests==2.32.3
