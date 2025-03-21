@@ -1,5 +1,5 @@
 name: Infrastructure and App Deployment
-#
+
 on:
   push:
     branches:
