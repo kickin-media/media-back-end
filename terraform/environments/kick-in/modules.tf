@@ -1,6 +1,6 @@
 module "frontend_bucket" {
   for_each = var.stages
-  source   = "./modules/frontend-s3-bucket"
+  source   = "../../modules/frontend-s3-bucket"
 
   frontend_bucket_name      = "kickin-media-frontend-${each.key}"
   frontend_bucket_hostnames = [
@@ -13,7 +13,7 @@ module "frontend_bucket" {
 
 module "processing_queue" {
   for_each = var.stages
-  source   = "./modules/photo-processing"
+  source   = "../../modules/photo-processing"
 
   photo_bucket_arn = "arn:aws:s3:::${each.value.photo_bucket_name}"
   stage            = each.key
@@ -21,7 +21,7 @@ module "processing_queue" {
 
 module "photo_bucket" {
   for_each = var.stages
-  source   = "./modules/photo-s3-bucket"
+  source   = "../../modules/photo-s3-bucket"
 
   photo_bucket_name      = each.value.photo_bucket_name
   photo_bucket_hostnames = [
