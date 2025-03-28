@@ -5,6 +5,13 @@ resource "aws_s3_bucket" "mysql_backup_bucket" {
 resource "aws_s3_bucket_acl" "mysql_s3_bucket_acl" {
   bucket = aws_s3_bucket.mysql_backup_bucket.bucket
   acl    = "private"
+  depends_on = [aws_s3_bucket_ownership_controls.s3_bucket_acl_ownership]
+}
+resource "aws_s3_bucket_ownership_controls" "s3_bucket_acl_ownership" {
+  bucket = aws_s3_bucket.mysql_backup_bucket.bucket
+  rule {
+    object_ownership = "ObjectWriter"
+  }
 }
 resource "aws_s3_bucket_public_access_block" "mysql_s3_bucket_public_acl" {
   bucket                  = aws_s3_bucket.mysql_backup_bucket.bucket

@@ -23,6 +23,13 @@ resource "aws_s3_bucket_website_configuration" "frontend_s3_bucket_website_confi
 resource "aws_s3_bucket_acl" "frontend_s3_bucket_acl" {
   bucket = aws_s3_bucket.frontend_s3_bucket.bucket
   acl    = "private"
+  depends_on = [aws_s3_bucket_ownership_controls.s3_bucket_acl_ownership]
+}
+resource "aws_s3_bucket_ownership_controls" "s3_bucket_acl_ownership" {
+  bucket = aws_s3_bucket.frontend_s3_bucket.bucket
+  rule {
+    object_ownership = "ObjectWriter"
+  }
 }
 resource "aws_s3_bucket_public_access_block" "frontend_s3_bucket_public_acl" {
   bucket                  = aws_s3_bucket.frontend_s3_bucket.bucket
