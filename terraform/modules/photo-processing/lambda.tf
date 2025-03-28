@@ -20,7 +20,7 @@ resource "aws_lambda_function" "processing_lambda" {
 
 data "archive_file" "processing_lambda_source" {
   type        = "zip"
-  source_dir  = "../lambdas/photo-processing-lambda"
+  source_dir  = "../../../lambdas/photo-processing-lambda"
   output_path = local.lambda_location
 }
 
