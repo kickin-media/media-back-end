@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
-      max-parallel: 1
+      max-parallel: 0
       matrix:
         environment:
           - kick-in
