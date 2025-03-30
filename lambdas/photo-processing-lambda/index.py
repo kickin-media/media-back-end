@@ -160,7 +160,7 @@ def process(event, context):
             watermark_image = Image.open(watermark_stream)
         except botocore.exceptions.ClientError as err:
             if 'Not Found' in str(err) or 'Forbidden' in str(err):
-                print("Event specific watermark not found. Try default one.")
+                print("Event specific watermark not found. Trying default one.")
                 watermark_image = None
             else:
                 raise err
@@ -173,25 +173,44 @@ def process(event, context):
                 watermark_object.download_fileobj(watermark_stream)
                 watermark_image = Image.open(watermark_stream)
             except botocore.exceptions.ClientError as err:
-                if 'Not Found' in str(err):
-                    raise Exception("No watermark found. Pushing event back on queue.")
+                if 'Not Found' in str(err) or 'Forbidden' in str(err):
+                    print("Default watermark not found.")
+                    watermark_image = None
                 else:
                     raise err
 
+        print("Downloading copyright font.")
+        try:
+            font_object = s3.Object(process_metadata['S3_BUCKET'], f"assets/watermark-font.ttf")
+            font_stream = io.BytesIO()
+            font_object.download_fileobj(font_stream)
+            font_stream.seek(0)
+        except botocore.exceptions.ClientError as err:
+            if 'Not Found' in str(err) or 'Forbidden' in str(err):
+                print("Copyright font not found.")
+                font_stream = None
+            else:
+                raise err
+
+
         print("Creating thumbnails.")
         # Create watermarked image.
-        try:
-            watermark = watermark_image
-            watermark = watermark.convert("RGBA")
-            image = image.convert("RGBA")
+        if watermark_image is not None:
+            print("Applying watermark image.")
+            try:
+                watermark = watermark_image
+                watermark = watermark.convert("RGBA")
+                image = image.convert("RGBA")
 
-            watermark.thumbnail((image.size[0] // 5, image.size[1] // 5))
-            watermark_logo_x = int(image.size[0] - watermarks_dx - watermark.size[0])
-            watermark_logo_y = int(image.size[1] - watermarks_dy - watermark.size[1])
-            image.paste(watermark, (watermark_logo_x, watermark_logo_y), watermark)
-            image = image.convert("RGB")
-        except OSError:
-            pass
+                watermark.thumbnail((image.size[0] // 5, image.size[1] // 5))
+                watermark_logo_x = int(image.size[0] - watermarks_dx - watermark.size[0])
+                watermark_logo_y = int(image.size[1] - watermarks_dy - watermark.size[1])
+                image.paste(watermark, (watermark_logo_x, watermark_logo_y), watermark)
+                image = image.convert("RGB")
+            except OSError:
+                pass
+        else:
+            print("No watermark image found. Not applying watermark.")
 
         # Add photographer name.
         if photo_data['author'] is not None and len(photo_data['author']) > 0:
@@ -202,7 +221,11 @@ def process(event, context):
             watermark_text_x = int(watermarks_dx)
             watermark_text_y = int(image.size[1] - watermarks_dy - font_size)
 
-            image_author_name_font = ImageFont.truetype("./watermark-font.ttf", font_size)
+            if font_stream is not None:
+                image_author_name_font = ImageFont.truetype(font_stream, font_size)
+            else:
+                print("Copyright font not found. Falling back to default.")
+                image_author_name_font = ImageFont.truetype("./default-watermark-font.ttf", font_size)
 
             image_author_name.text((watermark_text_x, watermark_text_y),
                                    "© {}".format(photo_data['author']),
