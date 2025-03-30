@@ -25,7 +25,7 @@ module "photo_bucket" {
 
   photo_bucket_name = each.value.photo_bucket_name
   photo_bucket_hostnames = [
-    "photos.${each.value.base_domain}",
+    "assets.${each.value.base_domain}",
   ]
 
   bucket_acm_arn = each.value.certificate_arn
