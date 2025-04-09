@@ -42,7 +42,7 @@ module "route53" {
   source   = "../../modules/dns"
 
   route53_zone_id          = each.value.route53_zone_id
-  frontend_record_for_apex = false
+  frontend_record_for_apex = true
 
   frontend_cloudfront_dns_name       = module.frontend_bucket[each.key].distribution_domain_name
   frontend_cloudfront_hosted_zone_id = module.frontend_bucket[each.key].distribution_hosted_zone_id

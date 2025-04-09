@@ -10,11 +10,11 @@ variable "stages" {
   default     = {
     "prod" : {
       "name" : "prod",
-      "base_domain" : "foto.batavierenrace.nl",
+      "base_domain" : "fotos.batavierenrace.nl",
       "extra_cors_hostnames" : []
       "photo_bucket_name" : "bata-media-photo-prod"
-      "certificate_arn" : "arn:aws:acm:us-east-1:172483268424:certificate/411d3e09-0a4e-4ed1-b73d-9c7e69d9d2da"
-      "route53_zone_id" : "Z04677781OQ1QDD432K8J"
+      "certificate_arn" : "arn:aws:acm:us-east-1:172483268424:certificate/31af764e-4a4e-4586-a7e3-93cce81656ba"
+      "route53_zone_id" : "Z0501357TFKZ7NM83UD2"
     }
   }
 }
