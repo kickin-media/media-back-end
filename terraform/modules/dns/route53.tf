@@ -52,7 +52,7 @@ resource "aws_route53_record" "frontend_bucket_record_apex_a" {
   count = var.frontend_record_for_apex ? 1 : 0
 
   zone_id = var.route53_zone_id
-  name    = "@"
+  name    = ""
   type    = "A"
 
   alias {
@@ -66,7 +66,7 @@ resource "aws_route53_record" "frontend_bucket_record_apex_aaaa" {
   count = var.frontend_record_for_apex ? 1 : 0
 
   zone_id = var.route53_zone_id
-  name    = "@"
+  name    = ""
   type    = "AAAA"
 
   alias {
