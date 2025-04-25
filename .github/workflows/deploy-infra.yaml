@@ -15,6 +15,11 @@ on:
       - lambdas/**
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
 jobs:
 
   deploy-infrastructure:
@@ -29,11 +34,6 @@ jobs:
           - bata
 
     environment: ${{ matrix.environment }}
-
-    env:
-      # These two are different per environment. Credentials for the Terraform CICD AWS user.
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_CICD_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_CICD_ACCESS_KEY_SECRET }}
 
     steps:
       - name: Checkout
@@ -56,6 +56,12 @@ jobs:
       - name: Install Lambda Prerequisites
         run: pip install -r requirements.txt -t .
         working-directory: lambdas/photo-processing-lambda
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4.1.0
+        with:
+          aws-region: eu-west-1
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
 
       - name: Terraform Init
         id: init

@@ -1,7 +1,16 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: Terraform Bootstrapping Stack
 
+Parameters:
+
+  GitHubRepoName:
+    Type: String
+    Description: The name of the GitHub repository whose workflows may access this account.
+    Default: kickin-media/media-back-end
+
 Resources:
+
+  # Terraform state resources
 
   TerraformS3Bucket:
     Type: AWS::S3::Bucket
@@ -73,9 +82,34 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
-  TerraformCICDUser:
-    Type: AWS::IAM::User
+  # Terraform infra deployment resources
+
+  TerraformCICDRole:
+    Type: AWS::IAM::Role
     Properties:
-      UserName: media-terraform-cicd-user
+      RoleName: media-terraform-cicd-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRoleWithWebIdentity
+            Principal:
+              Federated: !Ref GitHubOidcProvider
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepoName}:*"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
+
+  # GitHUB OIDC Resources for workflow authentication
+
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - ffffffffffffffffffffffffffffffffffffffff
