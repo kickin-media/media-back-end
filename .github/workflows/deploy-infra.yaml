@@ -33,6 +33,7 @@ jobs:
         environment:
           - kick-in
           - bata
+          - jwg
 
     environment: ${{ matrix.environment }}
 
