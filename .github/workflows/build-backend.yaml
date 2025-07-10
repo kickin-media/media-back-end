@@ -2,7 +2,7 @@ name: Build and Publish
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     paths:
       - .github/workflows/build-backend.yaml
       - src/**
@@ -57,8 +57,15 @@ jobs:
   deploy-docker-configuration:
     name: Deploy Docker configuration
     runs-on: ubuntu-latest
-    needs: [build-and-push-docker-image]
+    needs: [ build-and-push-docker-image ]
     if: ${{ github.ref == 'refs/heads/main' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        project-suffixes:
+          - ""
+          - "-hetzner"
 
     steps:
       - name: Checkout code
@@ -72,4 +79,4 @@ jobs:
           key: ${{secrets.DEPLOY_SSH_PRIVATE_KEY}}
           vault_password: ${{secrets.DEPLOY_VAULT_PASSWORD}}
           options: |
-            --inventory ./inventory
+            --inventory ./inventory/hosts${{ matrix.project-suffixes }}.yaml

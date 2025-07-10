@@ -8,7 +8,7 @@
   tasks:
     - name: Copy docker-compose file.
       template:
-        src: ./docker-compose.yaml.enc
+        src: ./docker-compose{{ project_suffix }}.yaml.enc
         dest: '{{ docker_dir }}/docker-compose.yaml'
 
     - name: Pull new image versions.
