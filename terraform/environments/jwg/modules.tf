@@ -15,8 +15,9 @@ module "processing_queue" {
   for_each = var.stages
   source   = "../../modules/photo-processing"
 
-  photo_bucket_arn = "arn:aws:s3:::${each.value.photo_bucket_name}"
-  stage            = each.key
+  photo_bucket_arn          = "arn:aws:s3:::${each.value.photo_bucket_name}"
+  stage                     = each.key
+  suppress_author_copyright = true
 }
 
 module "photo_bucket" {
@@ -49,5 +50,5 @@ module "route53" {
 
   photo_cloudfront_dns_name       = module.photo_bucket[each.key].distribution_domain_name
   photo_cloudfront_hosted_zone_id = module.photo_bucket[each.key].distribution_hosted_zone_id
-  photo_record_name = "assets"
+  photo_record_name               = "assets"
 }

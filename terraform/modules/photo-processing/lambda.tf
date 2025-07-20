@@ -10,6 +10,13 @@ resource "aws_lambda_function" "processing_lambda" {
   memory_size   = 2048
   timeout       = 30
 
+  environment {
+    variables = {
+      # Leaving the variable unset will not active this behavior.
+      SUPRESS_AUTHOR_COPYRIGHT = var.suppress_author_copyright ? "TRUE" : ""
+    }
+  }
+
   layers = [
     "arn:aws:lambda:eu-west-1:770693421928:layer:Klayers-p312-Pillow:3"
   ]

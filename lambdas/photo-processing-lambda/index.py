@@ -7,6 +7,7 @@ import boto3
 import io
 import json
 import requests
+import os
 
 
 def process(event, context):
@@ -192,7 +193,6 @@ def process(event, context):
             else:
                 raise err
 
-
         print("Creating thumbnails.")
         # Create watermarked image.
         if watermark_image is not None:
@@ -212,8 +212,9 @@ def process(event, context):
         else:
             print("No watermark image found. Not applying watermark.")
 
-        # Add photographer name.
-        if photo_data['author'] is not None and len(photo_data['author']) > 0:
+        # Add photographer name - but only if the behavior is not suppressed and the name is available.
+        if not bool(os.environ.get('SUPRESS_AUTHOR_COPYRIGHT', '')) and photo_data['author'] is not None and len(
+                photo_data['author']) > 0:
             print("Adding watermark text.")
             image_author_name = ImageDraw.Draw(image)
             font_size = int(image.size[1] // 50)
