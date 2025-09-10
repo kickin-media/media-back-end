@@ -9,6 +9,11 @@ module "frontend_bucket" {
   ]
 
   bucket_acm_arn = each.value.certificate_arn
+
+  # insecure basic auth
+  frontend_insecure_auth_user     = "jwg"
+  frontend_insecure_auth_password = "joris"
+  frontend_insecure_auth_prompt   = "Voer als gebruikersnaam de afkorting van de vereniging in, en als wachtwoord de naam van de mascotte. Gebruik alleen kleine letters. Kom je er niet uit? Stuur dan een e-mail naar gallery@sterrenkunde.nl voor het wachtwoord."
 }
 
 module "processing_queue" {

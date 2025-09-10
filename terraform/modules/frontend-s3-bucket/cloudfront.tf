@@ -32,16 +32,20 @@ resource "aws_cloudfront_distribution" "frontend_cloudfront_distribution" {
 
   default_cache_behavior {
     viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
+    allowed_methods = ["GET", "HEAD", "OPTIONS"]
+    cached_methods = ["GET", "HEAD"]
     target_origin_id       = "origin1"
     compress               = true
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = var.frontend_insecure_auth_password != "" ? aws_cloudfront_function.insecure_basic_auth.arn : aws_cloudfront_function.noop.arn
     }
+
+    # Managed-CachingOptimized / https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html
+    cache_policy_id = var.frontend_insecure_auth_password != "" ? aws_cloudfront_cache_policy.vary_on_auth.id : "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    # Managed-AllViewerExceptHostHeader / https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-origin-request-policies.html
+    origin_request_policy_id = var.frontend_insecure_auth_password != "" ? aws_cloudfront_origin_request_policy.no_auth.id : "b689b0a8-53d0-40ab-baf2-68738e2966ac"
   }
 
   restrictions {
