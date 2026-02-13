@@ -33,3 +33,7 @@ PHOTO_PROCESSING_SQS_QUEUE = os.getenv('SQS_PHOTO_QUEUE')
 
 # MAPBOX CONFIGURATION
 MAPBOX_API_TOKEN = os.getenv('MAPBOX_API_TOKEN', 'not-set')
+
+# BASIC AUTH (optional - if not set, no basic auth is required)
+BASIC_AUTH_PASSWORD = os.getenv('BASIC_AUTH_PASSWORD', None)
+BASIC_AUTH_REALM = os.getenv('BASIC_AUTH_REALM', 'Please provide the password to access this application.')

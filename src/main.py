@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import variables
+from auth.basic_auth_middleware import BasicAuthMiddleware
 from routers import system, events, albums, photos, author
 
 app_environment = os.getenv('ENVIRONMENT', None)
@@ -22,6 +23,13 @@ api.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
+)
+
+# Add optional Basic Auth middleware (only active if BASIC_AUTH_PASSWORD is set)
+api.add_middleware(
+    BasicAuthMiddleware,
+    password=variables.BASIC_AUTH_PASSWORD,
+    realm=variables.BASIC_AUTH_REALM
 )
 
 # Include routers
