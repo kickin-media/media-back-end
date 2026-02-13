@@ -15,7 +15,7 @@ class AlbumBase(SQLModel):
     timestamp: datetime.datetime
     release_time: Optional[datetime.datetime] = None
     event_id: str = Field(foreign_key="events.id")
-    cover_id: str = Field(foreign_key="photos.id", nullable=True, default=None)
+    cover_id: Optional[str] = Field(foreign_key="photos.id", nullable=True, default=None)
 
 
 class Album(AlbumBase, table=True):
