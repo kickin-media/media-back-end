@@ -29,7 +29,8 @@ api.add_middleware(
 api.add_middleware(
     BasicAuthMiddleware,
     password=variables.BASIC_AUTH_PASSWORD,
-    realm=variables.BASIC_AUTH_REALM
+    realm=variables.BASIC_AUTH_REALM,
+    allowed_origins=variables.CORS_ORIGINS
 )
 
 # Include routers
