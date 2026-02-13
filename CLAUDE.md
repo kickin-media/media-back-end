@@ -83,7 +83,7 @@ python -c "from index import process; import json; process(json.load(open('test_
 
 ### Request Flow
 
-1. **API Layer** (`/src/main.py`): FastAPI application with middleware (CORS, optional Basic Auth)
+1. **API Layer** (`/src/main.py`): FastAPI application with middleware (CORS, optional sitewide password)
 2. **Routers** (`/src/routers/`): Endpoint handlers organized by resource type
    - `system.py` - Health checks and system endpoints
    - `events.py` - Event management
@@ -91,7 +91,7 @@ python -c "from index import process; import json; process(json.load(open('test_
    - `photos.py` - Photo upload/retrieval (main functionality)
    - `author.py` - Author/user management
 3. **Authentication** (`/src/auth/`):
-   - `basic_auth_middleware.py` - Optional HTTP Basic Auth (API-wide)
+   - `sitewide_password_middleware.py` - Optional sitewide password via custom header (API-wide)
    - `auth_bearer.py` - JWT bearer token validation with RS256 (per-endpoint)
 4. **Database** (`/src/database.py`): SQLModel/SQLAlchemy with NullPool connection management
 5. **Models** (`/src/models/`): SQLModel table definitions with Pydantic validation
@@ -135,18 +135,20 @@ Key models and relationships:
 
 The API has two layers of authentication:
 
-#### 1. HTTP Basic Auth (Optional, API-wide)
+#### 1. Sitewide Password (Optional, API-wide)
 
-Optional first layer of defense applied to all endpoints via middleware. Enabled by setting `BASIC_AUTH_PASSWORD` environment variable.
+Optional first layer of defense applied to all endpoints via middleware. Enabled by setting `SITEWIDE_PASSWORD` environment variable.
 
-- **Username**: Always `user` (hardcoded)
-- **Password**: Configurable via `BASIC_AUTH_PASSWORD` environment variable
-- **Realm**: Configurable via `BASIC_AUTH_REALM` environment variable (default: "Media API")
-- **Behavior**: If `BASIC_AUTH_PASSWORD` is not set, no Basic Auth is required (API behaves as if this feature doesn't exist)
-- **Implementation**: `BasicAuthMiddleware` in `/src/auth/basic_auth_middleware.py`
+- **Header**: `X-Sitewide-Password` (custom header to avoid conflicts with Bearer token auth)
+- **Value**: Base64-encoded password
+- **Password**: Configurable via `SITEWIDE_PASSWORD` environment variable
+- **Hint**: Configurable via `SITEWIDE_PASSWORD_HINT` environment variable (returned in 401 responses)
+- **Behavior**: If `SITEWIDE_PASSWORD` is not set, no sitewide password is required (API behaves as if this feature doesn't exist)
+- **Implementation**: `SitewidePasswordMiddleware` in `/src/auth/sitewide_password_middleware.py`
 - **CORS preflight**: OPTIONS requests skip authentication to allow CORS preflight
+- **401 Response**: Returns JSON with `{"error": "authentication_required", "hint": "..."}`
 
-This is a low-complexity first line of defense, not intended as the primary security mechanism.
+This is a low-complexity first line of defense, not intended as the primary security mechanism. Uses a custom header instead of HTTP Basic Auth to allow coexistence with JWT Bearer tokens.
 
 #### 2. JWT Bearer Tokens (Per-endpoint)
 
@@ -176,8 +178,8 @@ All configuration is environment-based (see `/src/variables.py`):
 - `ENVIRONMENT` - Required: development/staging/production
 - `DB_CONNECTION` - Database connection string
 - `CORS_ALLOWED_ORIGINS` - Comma-separated allowed origins
-- `BASIC_AUTH_PASSWORD` - Optional: Password for HTTP Basic Auth (username is always "user")
-- `BASIC_AUTH_REALM` - Optional: Realm for HTTP Basic Auth challenge
+- `SITEWIDE_PASSWORD` - Optional: Password for sitewide authentication (sent as base64 in X-Sitewide-Password header)
+- `SITEWIDE_PASSWORD_HINT` - Optional: Hint text returned to clients when authentication is required
 - `JWT_KEY_CERTIFICATE` - Base64-encoded RSA public key
 - `JWT_AUDIENCE` - JWT audience for token validation
 - `S3_PHOTO_BUCKET` - S3 bucket for photo storage
