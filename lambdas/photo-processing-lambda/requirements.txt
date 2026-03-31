@@ -4,4 +4,4 @@
 
 boto3==1.42.9
 exif==1.6.0
-requests==2.32.3
+requests==2.33.0
