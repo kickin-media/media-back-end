@@ -1,13 +1,19 @@
+import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from auth.auth_bearer import JWTBearer
+from sqlalchemy import or_
 
 from database import get_db
 from sqlmodel import Session, select
 from typing import List
 
 from models.event import Event, EventCreate, EventReadList, EventReadSingle
-from models.album import AlbumReadList
-from models.photo import PhotoUploadPreSignedUrl
+from models.album import Album, AlbumReadList
+from models.photo import Photo, PhotoReadSingleStub, PhotoUploadPreSignedUrl
+from models.tag import Tag, TagRequest, SearchRequest
+from models.tagphotolink import TagPhotoLink
+from models.albumphotolink import AlbumPhotoLink
 
 from variables import S3_BUCKET_ASSET_PATH, S3_UPLOAD_EXPIRY, S3_BUCKET, S3_PHOTO_HOSTNAME
 
@@ -32,6 +38,47 @@ async def get_event(event_id: str, db: Session = Depends(get_db)):
     if event is None:
         raise HTTPException(status_code=404, detail="event_not_found")
     return event
+
+
+@router.post("/{event_id}/search", response_model=List[PhotoReadSingleStub])
+async def search_event_photos(event_id: str, search_request: SearchRequest,
+                              db: Session = Depends(get_db),
+                              auth_data=Depends(JWTBearer(auto_error=False))):
+    include_hidden = auth_data and 'albums:read_hidden' in auth_data['permissions']
+
+    event = db.get(Event, event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="event_not_found")
+
+    if len(search_request.tags) == 0:
+        raise HTTPException(status_code=400, detail="at_least_one_tag_required")
+
+    statement = select(Photo).distinct().join(
+        AlbumPhotoLink, Photo.id == AlbumPhotoLink.photo_id
+    ).join(
+        Album, AlbumPhotoLink.album_id == Album.id
+    ).where(
+        Album.event_id == event_id
+    )
+
+    if not include_hidden:
+        statement = statement.where(
+            Album.hidden_secret == None,
+            or_(Album.release_time == None, Album.release_time <= datetime.datetime.now())
+        )
+
+    for tag_filter in search_request.tags:
+        tag = db.exec(select(Tag).where(Tag.tag_slug == tag_filter.tag)).first()
+        if tag is None:
+            raise HTTPException(status_code=404, detail="tag_not_found_{}".format(tag_filter.tag))
+
+        sub = select(TagPhotoLink.photo_id).where(TagPhotoLink.tag_slug == tag.tag_slug)
+        if tag_filter.value is not None:
+            sub = sub.where(TagPhotoLink.tag_value == tag_filter.value)
+        statement = statement.where(Photo.id.in_(sub))
+
+    results = db.exec(statement).all()
+    return results
 
 
 @router.get("/{event_id}/albums", response_model=List[AlbumReadList])

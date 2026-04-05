@@ -13,6 +13,8 @@ from models.photo import Photo, OriginalPhotoDownload, PhotoUploadResponse, Phot
 from models.author import Author
 from models.album import Album
 from models.event import EventReadSingle
+from models.tag import Tag, TagRequest, PhotoTagRead
+from models.tagphotolink import TagPhotoLink
 
 from variables import S3_BUCKET, S3_UPLOAD_EXPIRY, S3_BUCKET_UPLOAD_PATH, S3_BUCKET_ORIGINAL_PATH, S3_BUCKET_PHOTO_PATH, \
     PHOTO_PROCESSING_SQS_QUEUE, API_BASE
@@ -117,7 +119,108 @@ async def get_photo(photo_id: str,
     if photo is None:
         raise HTTPException(status_code=404, detail="photo_not_found")
 
-    return photo
+    photo_dict = photo.dict()
+    photo_dict['img_urls'] = photo.img_urls
+    photo_dict['exif'] = photo.exif
+    photo_dict['gps_thumb'] = photo.gps_thumb
+    photo_dict['albums'] = photo.albums
+    photo_dict['author'] = photo.author
+    photo_dict['tags'] = get_photo_tags(db, photo_id)
+
+    return photo_dict
+
+
+def is_photo_visible(photo: Photo, include_hidden: bool) -> bool:
+    for album in photo.albums:
+        if album.hidden_secret is not None and not include_hidden:
+            continue
+        if album.release_time is not None and datetime.datetime.now() < album.release_time and not include_hidden:
+            continue
+        return True
+    return False
+
+
+def get_photo_tags(db: Session, photo_id: str) -> list:
+    statement = select(TagPhotoLink).where(TagPhotoLink.photo_id == photo_id)
+    results = db.exec(statement).all()
+    tags = []
+    for link in results:
+        tags.append(PhotoTagRead(
+            tag_slug=link.tag_slug,
+            tag_value=link.tag_value if link.tag_value != "" else None
+        ))
+    return tags
+
+
+@router.post("/{photo_id}/tags", response_model=List[PhotoTagRead])
+async def add_photo_tags(photo_id: str, tag_requests: List[TagRequest],
+                         db: Session = Depends(get_db),
+                         auth_data=Depends(JWTBearer(required_permissions=['photos:tagging']))):
+    photo = db.get(Photo, photo_id)
+    if photo is None:
+        raise HTTPException(status_code=404, detail="photo_not_found")
+
+    include_hidden = 'albums:read_hidden' in auth_data['permissions']
+    if not is_photo_visible(photo, include_hidden):
+        raise HTTPException(status_code=404, detail="photo_not_found")
+
+    for tag_request in tag_requests:
+        tag = db.exec(select(Tag).where(Tag.tag_slug == tag_request.tag)).first()
+        if tag is None:
+            raise HTTPException(status_code=404, detail="tag_not_found_{}".format(tag_request.tag))
+
+        if not tag.supports_value and tag_request.value is not None:
+            raise HTTPException(status_code=400, detail="tag_does_not_support_values_{}".format(tag_request.tag))
+
+        if tag.supports_value and tag_request.value is None:
+            raise HTTPException(status_code=400, detail="tag_requires_value_{}".format(tag_request.tag))
+
+        tag_value = tag_request.value if tag_request.value is not None else ""
+
+        existing = db.exec(select(TagPhotoLink).where(
+            TagPhotoLink.tag_slug == tag.tag_slug,
+            TagPhotoLink.photo_id == photo_id,
+            TagPhotoLink.tag_value == tag_value
+        )).first()
+        if existing is not None:
+            continue
+
+        link = TagPhotoLink(tag_slug=tag.tag_slug, photo_id=photo_id, tag_value=tag_value)
+        db.add(link)
+
+    db.commit()
+    return get_photo_tags(db, photo_id)
+
+
+@router.post("/{photo_id}/tags/remove", response_model=List[PhotoTagRead])
+async def remove_photo_tags(photo_id: str, tag_requests: List[TagRequest],
+                            db: Session = Depends(get_db),
+                            auth_data=Depends(JWTBearer(required_permissions=['photos:tagging']))):
+    photo = db.get(Photo, photo_id)
+    if photo is None:
+        raise HTTPException(status_code=404, detail="photo_not_found")
+
+    include_hidden = 'albums:read_hidden' in auth_data['permissions']
+    if not is_photo_visible(photo, include_hidden):
+        raise HTTPException(status_code=404, detail="photo_not_found")
+
+    for tag_request in tag_requests:
+        tag = db.exec(select(Tag).where(Tag.tag_slug == tag_request.tag)).first()
+        if tag is None:
+            raise HTTPException(status_code=404, detail="tag_not_found_{}".format(tag_request.tag))
+
+        tag_value = tag_request.value if tag_request.value is not None else ""
+
+        existing = db.exec(select(TagPhotoLink).where(
+            TagPhotoLink.tag_slug == tag.tag_slug,
+            TagPhotoLink.photo_id == photo_id,
+            TagPhotoLink.tag_value == tag_value
+        )).first()
+        if existing is not None:
+            db.delete(existing)
+
+    db.commit()
+    return get_photo_tags(db, photo_id)
 
 
 @router.get("/{photo_id}/event", response_model=EventReadSingle)

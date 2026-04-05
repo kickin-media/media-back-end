@@ -6,6 +6,7 @@ from pydantic import validator
 
 from models.author import Author
 from models.albumphotolink import AlbumPhotoLink
+from models.tag import PhotoTagRead
 
 from variables import S3_BUCKET_PHOTO_PATH, S3_PHOTO_HOSTNAME, MAPBOX_API_TOKEN
 
@@ -112,6 +113,8 @@ class PhotoReadSingle(PhotoReadSingleStub):
     gps_thumb: Optional[str]
     gps_lat: Optional[float]
     gps_lon: Optional[float]
+
+    tags: List[PhotoTagRead] = []
 
 
 class PhotoUploadPreSignedUrlFields(SQLModel):

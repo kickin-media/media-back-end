@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import variables
 from auth.sitewide_password_middleware import SitewidePasswordMiddleware
-from routers import system, events, albums, photos, author
+from routers import system, events, albums, photos, author, tags
 
 app_environment = os.getenv('ENVIRONMENT', None)
 if app_environment is None:
@@ -39,3 +39,4 @@ api.include_router(events.router)
 api.include_router(albums.router)
 api.include_router(photos.router)
 api.include_router(author.router)
+api.include_router(tags.router)
