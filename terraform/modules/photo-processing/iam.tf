@@ -32,6 +32,11 @@ data "aws_iam_policy_document" "lambda-role-policy-document" {
     effect    = "Allow"
     resources = ["${var.photo_bucket_arn}/*"]
   }
+  statement {
+    actions   = ["s3:ListBucket"]
+    effect    = "Allow"
+    resources = [var.photo_bucket_arn]
+  }
 }
 
 data "aws_iam_policy_document" "lambda-trust-policy" {
