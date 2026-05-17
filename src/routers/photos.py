@@ -362,9 +362,24 @@ async def reprocess_photo(photo_id: str,
     db.commit()
 
     original_path = "/".join([S3_BUCKET_ORIGINAL_PATH, "{}_o.jpg".format(photo.id)])
+    upload_path = "/".join([S3_BUCKET_UPLOAD_PATH, photo.secret, "{}.jpg".format(photo.id)])
 
-    trigger_photo_process(photo=photo, author=photo.author, exif_update_secret=exif_update_secret, delete_upload=False,
-                          source_path=original_path, delay_seconds=0, ttl=5)
+    # Check if the original exists; if not, fall back to the upload path.
+    s3 = boto3.client('s3')
+    try:
+        s3.head_object(Bucket=S3_BUCKET, Key=original_path)
+        source_path = original_path
+        delete_upload = False
+    except s3.exceptions.NoSuchKey:
+        try:
+            s3.head_object(Bucket=S3_BUCKET, Key=upload_path)
+            source_path = upload_path
+            delete_upload = True
+        except s3.exceptions.NoSuchKey:
+            raise HTTPException(status_code=404, detail="photo_source_not_found")
+
+    trigger_photo_process(photo=photo, author=photo.author, exif_update_secret=exif_update_secret,
+                          delete_upload=delete_upload, source_path=source_path, delay_seconds=0, ttl=5)
 
     raise HTTPException(status_code=200, detail="scheduled")
 
