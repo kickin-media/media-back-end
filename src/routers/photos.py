@@ -1,9 +1,12 @@
 import datetime
+import logging
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from auth.auth_bearer import JWTBearer
 from dateutil import parser
 from sqlalchemy import update
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import joinedload, selectinload
 
 from database import get_db
@@ -26,6 +29,33 @@ import botocore.exceptions
 import uuid
 import json
 import re
+
+logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 0.5
+
+
+def _execute_with_retry(db: Session, statement, max_retries=MAX_RETRIES):
+    """Execute a statement with retry on transient MySQL errors (lock timeout, deadlock)."""
+    for attempt in range(max_retries):
+        try:
+            result = db.execute(statement)
+            db.commit()
+            return result
+        except OperationalError as e:
+            db.rollback()
+            mysql_error_code = e.orig.args[0] if e.orig else None
+            if mysql_error_code in (1205, 1213) and attempt < max_retries - 1:
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    "Transient DB error (code %s) on attempt %d/%d, retrying in %.1fs",
+                    mysql_error_code, attempt + 1, max_retries, delay
+                )
+                time.sleep(delay)
+                continue
+            raise
+
 
 router = APIRouter(
     prefix="/photo",
@@ -249,7 +279,9 @@ def get_photo_event(photo_id: str,
 @router.post("/{photo_id}/exif/{photo_exif_secret}")
 def finalize_upload(photo_id: str, photo_exif_secret: str, request_data: dict,
                           db: Session = Depends(get_db)):
-    photo = db.get(Photo, photo_id)
+    photo = db.exec(
+        select(Photo.id, Photo.exif_update_secret).where(Photo.id == photo_id)
+    ).first()
 
     if photo is None:
         raise HTTPException(status_code=404, detail="photo_not_found")
@@ -262,24 +294,33 @@ def finalize_upload(photo_id: str, photo_exif_secret: str, request_data: dict,
 
     exif_data = request_data['exif_data']
 
-    photo.exif_data = json.dumps(exif_data)
-    photo.upload_processed = True
-    photo.exif_update_secret = None
+    update_values = {
+        "exif_data": json.dumps(exif_data),
+        "upload_processed": True,
+        "exif_update_secret": None,
+    }
 
-    if 'datetime_original' in exif_data.keys():
+    if 'datetime_original' in exif_data:
         datetime_original = exif_data['datetime_original']
         try:
-            parsed_datetime = datetime.datetime.strptime(datetime_original, '%Y:%m:%d %H:%M:%S')
-            photo.timestamp = parsed_datetime
+            update_values["timestamp"] = datetime.datetime.strptime(datetime_original, '%Y:%m:%d %H:%M:%S')
         except (ValueError, TypeError):
-            photo.timestamp = None
+            update_values["timestamp"] = None
 
     gps_data = request_data['gps_data']
     if gps_data is not None:
-        photo.gps_lat, photo.gps_lon = gps_data
+        update_values["gps_lat"] = gps_data[0]
+        update_values["gps_lon"] = gps_data[1]
 
-    db.add(photo)
-    db.commit()
+    result = _execute_with_retry(db,
+        update(Photo)
+        .where(Photo.id == photo_id)
+        .where(Photo.exif_update_secret == photo_exif_secret)
+        .values(**update_values)
+    )
+
+    if result.rowcount == 0:
+        raise HTTPException(status_code=409, detail="photo_already_finalized")
 
     raise HTTPException(status_code=200, detail="done")
 
@@ -416,6 +457,7 @@ def create_upload(num_uploads: int = 1,
         raise HTTPException(status_code=400, detail="create_author_data_first")
 
     response_list = []
+    photos_to_process = []
 
     for i in range(num_uploads):
         photo_id = str(uuid.uuid4())
@@ -438,15 +480,19 @@ def create_upload(num_uploads: int = 1,
         )
 
         db.add(photo)
-        db.commit()
 
         response_list.append(PhotoUploadResponse(
             photo_id=photo.id,
             pre_signed_url=upload_url
         ))
 
+        photos_to_process.append((photo, exif_update_secret, upload_url['fields']['key']))
+
+    db.commit()
+
+    for photo, exif_update_secret, source_path in photos_to_process:
         trigger_photo_process(photo=photo, author=author, exif_update_secret=exif_update_secret, delete_upload=True,
-                              source_path=upload_url['fields']['key'])
+                              source_path=source_path)
 
     return response_list
 
