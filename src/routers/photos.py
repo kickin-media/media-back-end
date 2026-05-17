@@ -525,9 +525,6 @@ def delete_photo(photo_id: str,
 
 
 @router.put("/{photo_id}/view")
-def increase_viewcount(photo_id: str, db: Session = Depends(get_db)):
-    result = db.execute(update(Photo).where(Photo.id == photo_id).values(views=Photo.views + 1))
-    db.commit()
-    if result.rowcount == 0:
-        raise HTTPException(status_code=404, detail="photo_not_found")
+def increase_viewcount(photo_id: str):
+    # No-op during peak traffic — re-enable when load stabilizes
     raise HTTPException(status_code=200, detail="success")

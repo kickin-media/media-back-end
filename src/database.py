@@ -7,7 +7,7 @@ from variables import DB_CONNECTION_STRING
 engine = create_sqlmodel_engine(
     DB_CONNECTION_STRING,
     pool_size=5,
-    max_overflow=10,
+    max_overflow=20,
     pool_pre_ping=True,
     pool_recycle=3600,
 )

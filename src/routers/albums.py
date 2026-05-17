@@ -211,9 +211,6 @@ def delete_album(album_id: str, db: Session = Depends(get_db)):
 
 
 @router.put("/{album_id}/view")
-def increase_viewcount(album_id: str, db: Session = Depends(get_db)):
-    result = db.execute(sa_update(Album).where(Album.id == album_id).values(views=Album.views + 1))
-    db.commit()
-    if result.rowcount == 0:
-        raise HTTPException(status_code=404, detail="album_not_found")
+def increase_viewcount(album_id: str):
+    # No-op during peak traffic — re-enable when load stabilizes
     raise HTTPException(status_code=200, detail="success")
