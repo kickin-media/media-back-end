@@ -32,7 +32,7 @@ router = APIRouter(
 
 
 @router.get("/stream", response_model=PhotoStream)
-async def get_event_photo_stream(timestamp: str = None, photo_id_start: str = 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+def get_event_photo_stream(timestamp: str = None, photo_id_start: str = 'ffffffff-ffff-ffff-ffff-ffffffffffff',
                                  direction: str = 'older', sort_by: str = 'uploaded',
                                  db: Session = Depends(get_db)):
     page_size = 50
@@ -107,13 +107,13 @@ async def get_event_photo_stream(timestamp: str = None, photo_id_start: str = 'f
 
 @router.get("/unprocessed", response_model=List[PhotoReadList],
             dependencies=[Depends(JWTBearer(required_permissions=['system:admin']))])
-async def get_unprocessed_photos(db: Session = Depends(get_db)):
+def get_unprocessed_photos(db: Session = Depends(get_db)):
     photos = db.query(Photo).filter(Photo.upload_processed == False).all()
     return [p for p in photos]
 
 
 @router.get("/{photo_id}", response_model=PhotoReadSingle)
-async def get_photo(photo_id: str,
+def get_photo(photo_id: str,
                     db: Session = Depends(get_db)):
     photo = db.get(Photo, photo_id)
 
@@ -154,7 +154,7 @@ def get_photo_tags(db: Session, photo_id: str) -> list:
 
 
 @router.post("/{photo_id}/tags", response_model=List[PhotoTagRead])
-async def add_photo_tags(photo_id: str, tag_requests: List[TagRequest],
+def add_photo_tags(photo_id: str, tag_requests: List[TagRequest],
                          db: Session = Depends(get_db),
                          auth_data=Depends(JWTBearer(required_permissions=['photos:tagging']))):
     photo = db.get(Photo, photo_id)
@@ -194,7 +194,7 @@ async def add_photo_tags(photo_id: str, tag_requests: List[TagRequest],
 
 
 @router.post("/{photo_id}/tags/remove", response_model=List[PhotoTagRead])
-async def remove_photo_tags(photo_id: str, tag_requests: List[TagRequest],
+def remove_photo_tags(photo_id: str, tag_requests: List[TagRequest],
                             db: Session = Depends(get_db),
                             auth_data=Depends(JWTBearer(required_permissions=['photos:tagging']))):
     photo = db.get(Photo, photo_id)
@@ -225,7 +225,7 @@ async def remove_photo_tags(photo_id: str, tag_requests: List[TagRequest],
 
 
 @router.get("/{photo_id}/event", response_model=EventReadSingle)
-async def get_photo_event(photo_id: str,
+def get_photo_event(photo_id: str,
                           db: Session = Depends(get_db)):
     photo = db.get(Photo, photo_id)
 
@@ -239,7 +239,7 @@ async def get_photo_event(photo_id: str,
 
 
 @router.post("/{photo_id}/exif/{photo_exif_secret}")
-async def finalize_upload(photo_id: str, photo_exif_secret: str, request_data: dict,
+def finalize_upload(photo_id: str, photo_exif_secret: str, request_data: dict,
                           db: Session = Depends(get_db)):
     photo = db.get(Photo, photo_id)
 
@@ -277,7 +277,7 @@ async def finalize_upload(photo_id: str, photo_exif_secret: str, request_data: d
 
 
 @router.get("/{photo_id}/original", response_model=OriginalPhotoDownload)
-async def get_original_photo(photo_id: str,
+def get_original_photo(photo_id: str,
                              auth_data=Depends(JWTBearer()),
                              db: Session = Depends(get_db)):
     photo = db.get(Photo, photo_id)
@@ -301,7 +301,7 @@ async def get_original_photo(photo_id: str,
 
 @router.get("/{photo_id}/original_upload", response_model=OriginalPhotoDownload,
             dependencies=[Depends(JWTBearer(required_permissions=['system:admin']))])
-async def get_original_photo_upload(photo_id: str, db: Session = Depends(get_db)):
+def get_original_photo_upload(photo_id: str, db: Session = Depends(get_db)):
     photo = db.get(Photo, photo_id)
 
     if photo is None:
@@ -346,7 +346,7 @@ def trigger_photo_process(photo: Photo, exif_update_secret: str, author: Author,
 
 
 @router.post("/{photo_id}/reprocess")
-async def reprocess_photo(photo_id: str,
+def reprocess_photo(photo_id: str,
                           auth_data=Depends(JWTBearer()),
                           db: Session = Depends(get_db)):
     photo = db.get(Photo, photo_id)
@@ -395,7 +395,7 @@ async def reprocess_photo(photo_id: str,
 
 
 @router.post("/", response_model=List[PhotoUploadResponse])
-async def create_upload(num_uploads: int = 1,
+def create_upload(num_uploads: int = 1,
                         auth_data=Depends(JWTBearer(required_permissions=['photos:upload'])),
                         db: Session = Depends(get_db)):
     # If this limit is ever changed, it needs to be updated in the front-end as well!
@@ -444,7 +444,7 @@ async def create_upload(num_uploads: int = 1,
 
 
 @router.put("/{photo_id}/albums", response_model=PhotoReadSingleStub)
-async def replace_albums(photo_id: str,
+def replace_albums(photo_id: str,
                          album_ids: List[str],
                          db: Session = Depends(get_db),
                          auth_data=Depends(JWTBearer())):
@@ -486,7 +486,7 @@ async def replace_albums(photo_id: str,
 
 
 @router.delete("/{photo_id}")
-async def delete_photo(photo_id: str,
+def delete_photo(photo_id: str,
                        db: Session = Depends(get_db),
                        auth_data=Depends(JWTBearer())):
     photo = db.get(Photo, photo_id)
@@ -517,7 +517,7 @@ async def delete_photo(photo_id: str,
 
 
 @router.put("/{photo_id}/view")
-async def increase_viewcount(photo_id: str,
+def increase_viewcount(photo_id: str,
                              db: Session = Depends(get_db)):
     photo = db.get(Photo, photo_id)
 

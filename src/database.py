@@ -1,11 +1,16 @@
-import sqlalchemy.pool
 from sqlmodel import create_engine as create_sqlmodel_engine
 from sqlmodel import Session
 from sqlmodel.sql.expression import Select, SelectOfScalar
 
 from variables import DB_CONNECTION_STRING
 
-engine = create_sqlmodel_engine(DB_CONNECTION_STRING, poolclass=sqlalchemy.pool.NullPool)
+engine = create_sqlmodel_engine(
+    DB_CONNECTION_STRING,
+    pool_size=5,
+    max_overflow=10,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+)
 
 db_session = Session(engine)
 

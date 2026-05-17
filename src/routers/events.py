@@ -27,13 +27,13 @@ router = APIRouter(
 
 
 @router.get("/", response_model=List[EventReadList])
-async def list_events(db: Session = Depends(get_db)):
+def list_events(db: Session = Depends(get_db)):
     events = db.exec(select(Event)).all()
     return events
 
 
 @router.get("/{event_id}", response_model=EventReadSingle)
-async def get_event(event_id: str, db: Session = Depends(get_db)):
+def get_event(event_id: str, db: Session = Depends(get_db)):
     event = db.get(Event, event_id)
     if event is None:
         raise HTTPException(status_code=404, detail="event_not_found")
@@ -41,7 +41,7 @@ async def get_event(event_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{event_id}/search", response_model=List[PhotoReadSingleStub])
-async def search_event_photos(event_id: str, search_request: SearchRequest,
+def search_event_photos(event_id: str, search_request: SearchRequest,
                               db: Session = Depends(get_db),
                               auth_data=Depends(JWTBearer(auto_error=False))):
     include_hidden = auth_data and 'albums:read_hidden' in auth_data['permissions']
@@ -82,7 +82,7 @@ async def search_event_photos(event_id: str, search_request: SearchRequest,
 
 
 @router.get("/{event_id}/albums", response_model=List[AlbumReadList])
-async def get_event_albums(event_id: str, db: Session = Depends(get_db),
+def get_event_albums(event_id: str, db: Session = Depends(get_db),
                            auth_data=Depends(JWTBearer(auto_error=False))):
     include_hidden = auth_data and 'albums:read_hidden' in auth_data['permissions']
 
@@ -100,7 +100,7 @@ async def get_event_albums(event_id: str, db: Session = Depends(get_db),
 
 
 @router.post("/", response_model=Event, dependencies=[Depends(JWTBearer(required_permissions=['events:manage']))])
-async def create_event(event: EventCreate, db: Session = Depends(get_db)):
+def create_event(event: EventCreate, db: Session = Depends(get_db)):
     event = Event.from_orm(event)
 
     event_id = str(uuid.uuid4())
@@ -114,7 +114,7 @@ async def create_event(event: EventCreate, db: Session = Depends(get_db)):
 
 @router.put("/{event_id}", response_model=Event,
             dependencies=[Depends(JWTBearer(required_permissions=['events:manage']))])
-async def update_event(event_id: str, event_data: EventCreate, db: Session = Depends(get_db)):
+def update_event(event_id: str, event_data: EventCreate, db: Session = Depends(get_db)):
     event_data = event_data.dict()
     event = db.get(Event, event_id)
 
@@ -132,7 +132,7 @@ async def update_event(event_id: str, event_data: EventCreate, db: Session = Dep
 
 
 @router.delete("/{event_id}", dependencies=[Depends(JWTBearer(required_permissions=['events:manage']))])
-async def delete_event(event_id: str, db: Session = Depends(get_db)):
+def delete_event(event_id: str, db: Session = Depends(get_db)):
     event = db.get(Event, event_id)
 
     if event is None:
@@ -151,7 +151,7 @@ async def delete_event(event_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{event_id}/watermark")
-async def get_event_watermark(event_id: str, db: Session = Depends(get_db)):
+def get_event_watermark(event_id: str, db: Session = Depends(get_db)):
     event = db.get(Event, event_id)
     if event is None:
         raise HTTPException(status_code=404, detail="event_not_found")
@@ -166,7 +166,7 @@ async def get_event_watermark(event_id: str, db: Session = Depends(get_db)):
 
 @router.post("/{event_id}/watermark", response_model=PhotoUploadPreSignedUrl,
              dependencies=[Depends(JWTBearer(required_permissions=['events:manage']))])
-async def create_event_watermark_upload(event_id: str,
+def create_event_watermark_upload(event_id: str,
                                         db: Session = Depends(get_db)):
     event = db.get(Event, event_id)
     if event is None:
@@ -183,7 +183,7 @@ async def create_event_watermark_upload(event_id: str,
 
 @router.delete("/{event_id}/watermark", response_model=PhotoUploadPreSignedUrl,
                dependencies=[Depends(JWTBearer(required_permissions=['events:manage']))])
-async def delete_event_watermark(event_id: str,
+def delete_event_watermark(event_id: str,
                                  db: Session = Depends(get_db)):
     event = db.get(Event, event_id)
     if event is None:

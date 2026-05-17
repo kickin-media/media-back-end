@@ -22,13 +22,13 @@ router = APIRouter(
 
 @router.get("/", response_model=List[AlbumReadList],
             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
-async def list_albums(db: Session = Depends(get_db)):
+def list_albums(db: Session = Depends(get_db)):
     albums = db.exec(select(Album)).all()
     return albums
 
 
 @router.get("/{album_id}", response_model=AlbumReadSingle)
-async def get_album(album_id: str, secret: str = None, db: Session = Depends(get_db),
+def get_album(album_id: str, secret: str = None, db: Session = Depends(get_db),
                     auth_data=Depends(JWTBearer(auto_error=False))):
     include_hidden = auth_data and 'albums:read_hidden' in auth_data['permissions']
 
@@ -55,7 +55,7 @@ async def get_album(album_id: str, secret: str = None, db: Session = Depends(get
 
 
 @router.post("/", response_model=Album, dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
-async def create_album(album: AlbumCreate, db: Session = Depends(get_db)):
+def create_album(album: AlbumCreate, db: Session = Depends(get_db)):
     event = db.get(Event, album.event_id)
     if event is None:
         raise HTTPException(status_code=404, detail="event_not_found")
@@ -74,7 +74,7 @@ async def create_album(album: AlbumCreate, db: Session = Depends(get_db)):
 
 @router.put("/{album_id}", response_model=Album,
             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
-async def update_album(album_id: str, album: AlbumCreate, db: Session = Depends(get_db)):
+def update_album(album_id: str, album: AlbumCreate, db: Session = Depends(get_db)):
     db_album = db.get(Album, album_id)
 
     if db_album is None:
@@ -96,7 +96,7 @@ async def update_album(album_id: str, album: AlbumCreate, db: Session = Depends(
 
 @router.put("/{album_id}/hidden", response_model=AlbumReadSingleStub,
             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
-async def update_album_hidden_status(album_id: str, hidden_status: AlbumSetSecretStatus,
+def update_album_hidden_status(album_id: str, hidden_status: AlbumSetSecretStatus,
                                      db: Session = Depends(get_db)):
     album = db.get(Album, album_id)
 
@@ -119,7 +119,7 @@ async def update_album_hidden_status(album_id: str, hidden_status: AlbumSetSecre
 
 @router.put("/{album_id}/cover", response_model=AlbumReadSingleStub,
             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
-async def update_album_cover(album_id: str, cover_info: AlbumSetCover,
+def update_album_cover(album_id: str, cover_info: AlbumSetCover,
                              db: Session = Depends(get_db)):
     album = db.get(Album, album_id)
     if album is None:
@@ -149,7 +149,7 @@ async def update_album_cover(album_id: str, cover_info: AlbumSetCover,
 
 @router.delete("/{album_id}/empty", response_model=AlbumReadSingleStub,
                dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
-async def empty_album(album_id: str, db: Session = Depends(get_db)):
+def empty_album(album_id: str, db: Session = Depends(get_db)):
     db_album = db.get(Album, album_id)
 
     if db_album is None:
@@ -172,7 +172,7 @@ async def empty_album(album_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/{album_id}", dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
-async def delete_album(album_id: str, db: Session = Depends(get_db)):
+def delete_album(album_id: str, db: Session = Depends(get_db)):
     album = db.get(Album, album_id)
 
     if album is None:
@@ -188,7 +188,7 @@ async def delete_album(album_id: str, db: Session = Depends(get_db)):
 
 
 @router.put("/{album_id}/view")
-async def increase_viewcount(album_id: str,
+def increase_viewcount(album_id: str,
                              db: Session = Depends(get_db)):
     album = db.get(Album, album_id)
 

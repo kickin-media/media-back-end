@@ -12,6 +12,6 @@ router = APIRouter(
 
 
 @router.get("/", response_model=List[TagReadList])
-async def list_tags(db: Session = Depends(get_db)):
+def list_tags(db: Session = Depends(get_db)):
     tags = db.exec(select(Tag)).all()
     return tags

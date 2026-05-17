@@ -16,7 +16,7 @@ router = APIRouter(
 
 
 @router.get("/{author_id}", response_model=AuthorReadSingle)
-async def get_author_data(author_id: str, db: Session = Depends(get_db)):
+def get_author_data(author_id: str, db: Session = Depends(get_db)):
     author = db.get(Author, author_id)
     if author is None:
         raise HTTPException(status_code=404, detail="author_not_found")
@@ -24,7 +24,7 @@ async def get_author_data(author_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{author_id}/photos", response_model=List[PhotoReadList])
-async def get_author_photos(author_id: str, page: int = 0, db: Session = Depends(get_db)):
+def get_author_photos(author_id: str, page: int = 0, db: Session = Depends(get_db)):
     author = db.get(Author, author_id)
     if author is None:
         raise HTTPException(status_code=404, detail="author_not_found")
@@ -38,7 +38,7 @@ async def get_author_photos(author_id: str, page: int = 0, db: Session = Depends
 
 
 @router.put("/", response_model=Author)
-async def update_author_data(author_data: AuthorCreate,
+def update_author_data(author_data: AuthorCreate,
                              db: Session = Depends(get_db),
                              auth_data=Depends(JWTBearer())):
     author_id = auth_data['sub']
@@ -57,7 +57,7 @@ async def update_author_data(author_data: AuthorCreate,
 
 
 @router.delete("/")
-async def delete_author_data(auth_data=Depends(JWTBearer()), db: Session = Depends(get_db)):
+def delete_author_data(auth_data=Depends(JWTBearer()), db: Session = Depends(get_db)):
     author_id = auth_data['sub']
     author = db.get(Author, author_id)
 

@@ -16,7 +16,7 @@ router = APIRouter(
 
 
 @router.get("/status")
-async def get_status(db: Session = Depends(get_db)):
+def get_status(db: Session = Depends(get_db)):
     status = {
         'status': {
             'database': None,
