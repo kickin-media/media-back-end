@@ -2,6 +2,8 @@ import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from auth.auth_bearer import JWTBearer
+from sqlalchemy import func, update as sa_update
+from sqlalchemy.orm import joinedload, selectinload
 
 from database import get_db
 from sqlmodel import Session, select
@@ -9,6 +11,7 @@ from typing import List
 
 from models.album import Album, AlbumCreate, AlbumReadList, AlbumReadSingle, AlbumSetSecretStatus, AlbumSetCover, \
     AlbumReadSingleStub
+from models.albumphotolink import AlbumPhotoLink
 from models.event import Event
 from models.photo import Photo
 
@@ -23,7 +26,22 @@ router = APIRouter(
 @router.get("/", response_model=List[AlbumReadList],
             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
 def list_albums(db: Session = Depends(get_db)):
-    albums = db.exec(select(Album)).all()
+    photos_count_subq = (
+        select(func.count(AlbumPhotoLink.photo_id))
+        .where(AlbumPhotoLink.album_id == Album.id)
+        .correlate(Album)
+        .scalar_subquery()
+        .label("_photos_count")
+    )
+    statement = select(Album, photos_count_subq).options(
+        joinedload(Album.cover).joinedload(Photo.author),
+        joinedload(Album.event)
+    )
+    results = db.execute(statement).unique().all()
+    albums = []
+    for album, count in results:
+        album._cached_photos_count = count
+        albums.append(album)
     return albums
 
 
@@ -32,7 +50,12 @@ def get_album(album_id: str, secret: str = None, db: Session = Depends(get_db),
                     auth_data=Depends(JWTBearer(auto_error=False))):
     include_hidden = auth_data and 'albums:read_hidden' in auth_data['permissions']
 
-    album = db.get(Album, album_id)
+    statement = select(Album).where(Album.id == album_id).options(
+        selectinload(Album.photos).joinedload(Photo.author),
+        joinedload(Album.cover),
+        joinedload(Album.event)
+    )
+    album = db.exec(statement).unique().first()
 
     if album is None:
         raise HTTPException(status_code=404, detail="album_not_found")
@@ -188,6 +211,9 @@ def delete_album(album_id: str, db: Session = Depends(get_db)):
 
 
 @router.put("/{album_id}/view")
-def increase_viewcount(album_id: str):
-    # TODO: Re-enable view counting once DB pool sizing is resolved
+def increase_viewcount(album_id: str, db: Session = Depends(get_db)):
+    result = db.execute(sa_update(Album).where(Album.id == album_id).values(views=Album.views + 1))
+    db.commit()
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="album_not_found")
     raise HTTPException(status_code=200, detail="success")

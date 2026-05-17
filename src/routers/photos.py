@@ -3,6 +3,8 @@ import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from auth.auth_bearer import JWTBearer
 from dateutil import parser
+from sqlalchemy import update
+from sqlalchemy.orm import joinedload, selectinload
 
 from database import get_db
 from sqlmodel import Session, select
@@ -73,6 +75,8 @@ def get_event_photo_stream(timestamp: str = None, photo_id_start: str = 'fffffff
     else:
         raise HTTPException(status_code=400, detail="invalid_direction")
 
+    photostream_statement = photostream_statement.options(selectinload(Photo.albums))
+
     photostream_results = db.exec(photostream_statement)
 
     photostream_response = PhotoStream(
@@ -115,7 +119,11 @@ def get_unprocessed_photos(db: Session = Depends(get_db)):
 @router.get("/{photo_id}", response_model=PhotoReadSingle)
 def get_photo(photo_id: str,
                     db: Session = Depends(get_db)):
-    photo = db.get(Photo, photo_id)
+    statement = select(Photo).where(Photo.id == photo_id).options(
+        selectinload(Photo.albums),
+        joinedload(Photo.author)
+    )
+    photo = db.exec(statement).unique().first()
 
     if photo is None:
         raise HTTPException(status_code=404, detail="photo_not_found")
@@ -517,6 +525,9 @@ def delete_photo(photo_id: str,
 
 
 @router.put("/{photo_id}/view")
-def increase_viewcount(photo_id: str):
-    # TODO: Re-enable view counting once DB pool sizing is resolved
+def increase_viewcount(photo_id: str, db: Session = Depends(get_db)):
+    result = db.execute(update(Photo).where(Photo.id == photo_id).values(views=Photo.views + 1))
+    db.commit()
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="photo_not_found")
     raise HTTPException(status_code=200, detail="success")

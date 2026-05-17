@@ -1,5 +1,6 @@
 import datetime
 
+from sqlalchemy import inspect
 from sqlmodel import SQLModel, Field, Relationship
 from typing import TYPE_CHECKING, Optional, List
 
@@ -32,16 +33,26 @@ class Album(AlbumBase, table=True):
     views: int = Field(default=0)
 
     @property
-    def photos_count(self):
+    def photos_count(self) -> int:
+        # Use cached count from query subquery if available (set by listing endpoints)
+        if hasattr(self, '_cached_photos_count'):
+            return self._cached_photos_count
+        # If photos are already eager-loaded, count them without a new query
+        state = inspect(self)
+        if 'photos' in state.dict:
+            return len(self.photos)
+        # Fallback: will trigger lazy load (should not happen on optimized endpoints)
         return len(self.photos)
 
     @property
     def cover_photo(self):
-        if len(self.photos) == 0:
-            return None
-        elif self.cover:
+        if self.cover:
             return self.cover
-        return self.photos[0]
+        # Only fall back to photos[0] if photos were already eager-loaded
+        state = inspect(self)
+        if 'photos' in state.dict:
+            return self.photos[0] if self.photos else None
+        return None
 
 
 class AlbumCreate(AlbumBase):

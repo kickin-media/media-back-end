@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from auth.auth_bearer import JWTBearer
+from sqlalchemy import func
 
 from database import get_db
 from sqlmodel import Session, select
@@ -20,7 +21,10 @@ def get_author_data(author_id: str, db: Session = Depends(get_db)):
     author = db.get(Author, author_id)
     if author is None:
         raise HTTPException(status_code=404, detail="author_not_found")
-    return author
+    photos_count = db.execute(
+        select(func.count()).where(Photo.author_id == author_id)
+    ).scalar() or 0
+    return AuthorReadSingle(id=author.id, name=author.name, photos_count=photos_count)
 
 
 @router.get("/{author_id}/photos", response_model=List[PhotoReadList])
@@ -64,7 +68,10 @@ def delete_author_data(auth_data=Depends(JWTBearer()), db: Session = Depends(get
     if author is None:
         raise HTTPException(status_code=404, detail="author_not_found")
 
-    if len(author.photos) > 0:
+    photos_count = db.execute(
+        select(func.count()).where(Photo.author_id == author_id)
+    ).scalar() or 0
+    if photos_count > 0:
         raise HTTPException(status_code=500, detail="can_only_remove_author_without_photos")
 
     db.delete(author)

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from database import get_db
 from sqlmodel import Session, select
@@ -17,6 +18,21 @@ router = APIRouter(
 
 @router.get("/status")
 def get_status(db: Session = Depends(get_db)):
+    # Lightweight health check: only verify DB connectivity
+    try:
+        db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    return JSONResponse(
+        status_code=(200 if db_ok else 500),
+        content={'status': {'database': db_ok}}
+    )
+
+
+@router.get("/status/full")
+def get_status_full(db: Session = Depends(get_db)):
     status = {
         'status': {
             'database': None,
@@ -33,12 +49,9 @@ def get_status(db: Session = Depends(get_db)):
 
     # database check
     try:
-        photo = db.exec(select(Photo)).first()
-        if photo is not None:
-            status['status']['database'] = True
-        else:
-            status['status']['database'] = False
-    except Exception as err:
+        db.execute(text("SELECT 1"))
+        status['status']['database'] = True
+    except Exception:
         status['status']['database'] = False
 
     # amazon sqs check
@@ -52,7 +65,7 @@ def get_status(db: Session = Depends(get_db)):
             status['status']['sqs'] = True
         else:
             status['status']['sqs'] = False
-    except Exception as err:
+    except Exception:
         status['status']['sqs'] = False
 
     # amazon s3 check
@@ -66,7 +79,7 @@ def get_status(db: Session = Depends(get_db)):
             status['status']['s3'] = True
         else:
             status['status']['s3'] = False
-    except Exception as err:
+    except Exception:
         status['status']['s3'] = False
 
     # photo metrics

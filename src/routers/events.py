@@ -2,7 +2,8 @@ import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from auth.auth_bearer import JWTBearer
-from sqlalchemy import or_
+from sqlalchemy import or_, func
+from sqlalchemy.orm import joinedload, selectinload
 
 from database import get_db
 from sqlmodel import Session, select
@@ -77,7 +78,9 @@ def search_event_photos(event_id: str, search_request: SearchRequest,
             sub = sub.where(TagPhotoLink.tag_value == tag_filter.value)
         statement = statement.where(Photo.id.in_(sub))
 
-    results = db.exec(statement).all()
+    statement = statement.options(joinedload(Photo.author))
+
+    results = db.exec(statement).unique().all()
     return results
 
 
@@ -90,10 +93,32 @@ def get_event_albums(event_id: str, db: Session = Depends(get_db),
     if event is None:
         raise HTTPException(status_code=404, detail="event_not_found")
 
+    # Count photos per album via a subquery (avoids loading all photo objects)
+    photos_count_subq = (
+        select(func.count(AlbumPhotoLink.photo_id))
+        .where(AlbumPhotoLink.album_id == Album.id)
+        .correlate(Album)
+        .scalar_subquery()
+        .label("_photos_count")
+    )
+
+    statement = (
+        select(Album, photos_count_subq)
+        .where(Album.event_id == event_id)
+        .options(
+            joinedload(Album.cover).joinedload(Photo.author),
+            joinedload(Album.event)
+        )
+    )
+
+    if not include_hidden:
+        statement = statement.where(Album.hidden_secret == None)
+
+    results = db.execute(statement).unique().all()
+
     albums = []
-    for album in event.albums:
-        if album.hidden_secret is not None and not include_hidden:
-            continue
+    for album, count in results:
+        album._cached_photos_count = count
         albums.append(album)
 
     return albums
