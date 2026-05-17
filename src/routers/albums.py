@@ -188,15 +188,6 @@ def delete_album(album_id: str, db: Session = Depends(get_db)):
 
 
 @router.put("/{album_id}/view")
-def increase_viewcount(album_id: str,
-                             db: Session = Depends(get_db)):
-    album = db.get(Album, album_id)
-
-    if album is None:
-        raise HTTPException(status_code=404, detail="album_not_found")
-
-    album.views += 1
-    db.add(album)
-    db.commit()
-
+def increase_viewcount(album_id: str):
+    # TODO: Re-enable view counting once DB pool sizing is resolved
     raise HTTPException(status_code=200, detail="success")

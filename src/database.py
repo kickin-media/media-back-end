@@ -6,14 +6,11 @@ from variables import DB_CONNECTION_STRING
 
 engine = create_sqlmodel_engine(
     DB_CONNECTION_STRING,
-    pool_size=5,
-    max_overflow=10,
+    pool_size=10,
+    max_overflow=30,
     pool_pre_ping=True,
     pool_recycle=3600,
 )
-
-db_session = Session(engine)
-
 
 def get_db():
     with Session(engine) as session:

@@ -517,15 +517,6 @@ def delete_photo(photo_id: str,
 
 
 @router.put("/{photo_id}/view")
-def increase_viewcount(photo_id: str,
-                             db: Session = Depends(get_db)):
-    photo = db.get(Photo, photo_id)
-
-    if photo is None:
-        raise HTTPException(status_code=404, detail="photo_not_found")
-
-    photo.views += 1
-    db.add(photo)
-    db.commit()
-
+def increase_viewcount(photo_id: str):
+    # TODO: Re-enable view counting once DB pool sizing is resolved
     raise HTTPException(status_code=200, detail="success")
