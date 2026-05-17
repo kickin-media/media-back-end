@@ -20,6 +20,7 @@ from variables import S3_BUCKET, S3_UPLOAD_EXPIRY, S3_BUCKET_UPLOAD_PATH, S3_BUC
     PHOTO_PROCESSING_SQS_QUEUE, API_BASE
 
 import boto3
+import botocore.exceptions
 import uuid
 import json
 import re
@@ -365,18 +366,27 @@ async def reprocess_photo(photo_id: str,
     upload_path = "/".join([S3_BUCKET_UPLOAD_PATH, photo.secret, "{}.jpg".format(photo.id)])
 
     # Check if the original exists; if not, fall back to the upload path.
+    # Uses head_object which requires s3:ListBucket for proper NoSuchKey errors.
+    # Without ListBucket, S3 returns 403 instead of 404 for missing keys.
     s3 = boto3.client('s3')
-    try:
-        s3.head_object(Bucket=S3_BUCKET, Key=original_path)
+
+    def s3_object_exists(key):
+        try:
+            s3.head_object(Bucket=S3_BUCKET, Key=key)
+            return True
+        except botocore.exceptions.ClientError as err:
+            if err.response['Error']['Code'] in ('404', '403'):
+                return False
+            raise
+
+    if s3_object_exists(original_path):
         source_path = original_path
         delete_upload = False
-    except s3.exceptions.NoSuchKey:
-        try:
-            s3.head_object(Bucket=S3_BUCKET, Key=upload_path)
-            source_path = upload_path
-            delete_upload = True
-        except s3.exceptions.NoSuchKey:
-            raise HTTPException(status_code=404, detail="photo_source_not_found")
+    elif s3_object_exists(upload_path):
+        source_path = upload_path
+        delete_upload = True
+    else:
+        raise HTTPException(status_code=404, detail="photo_source_not_found")
 
     trigger_photo_process(photo=photo, author=photo.author, exif_update_secret=exif_update_secret,
                           delete_upload=delete_upload, source_path=source_path, delay_seconds=0, ttl=5)
