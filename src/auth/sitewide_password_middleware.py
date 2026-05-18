@@ -31,6 +31,10 @@ class SitewidePasswordMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS":
             return await call_next(request)
 
+        # Skip authentication for health check endpoint
+        if request.url.path == "/status":
+            return await call_next(request)
+
         # Get X-Sitewide-Password header
         password_header = request.headers.get("X-Sitewide-Password")
 

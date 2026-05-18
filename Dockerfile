@@ -15,7 +15,7 @@ RUN export PATH="$PATH:/media-backend"
 
 CMD ["./start.sh"]
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s \
-  CMD curl -f http://localhost:80/status
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 --start-period=30s \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:80/status')"
 
 EXPOSE 80/tcp
