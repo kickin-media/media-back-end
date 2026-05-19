@@ -77,7 +77,7 @@ def get_album(album_id: str, secret: str = None, db: Session = Depends(get_db),
     return album
 
 
-@router.post("/", response_model=Album, dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
+@router.post("/", response_model=AlbumReadSingleStub, dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
 def create_album(album: AlbumCreate, db: Session = Depends(get_db)):
     event = db.get(Event, album.event_id)
     if event is None:
@@ -95,7 +95,7 @@ def create_album(album: AlbumCreate, db: Session = Depends(get_db)):
     return album
 
 
-@router.put("/{album_id}", response_model=Album,
+@router.put("/{album_id}", response_model=AlbumReadSingleStub,
             dependencies=[Depends(JWTBearer(required_permissions=['albums:manage']))])
 def update_album(album_id: str, album: AlbumCreate, db: Session = Depends(get_db)):
     db_album = db.get(Album, album_id)
