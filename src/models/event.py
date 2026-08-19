@@ -15,7 +15,7 @@ class EventBase(SQLModel):
 class Event(EventBase, table=True):
     __tablename__ = "events"
 
-    id: Optional[str] = Field(primary_key=True, index=True)
+    id: Optional[str] = Field(default=None, primary_key=True, index=True)
 
     albums: List[Album] = Relationship(back_populates="event")
 
