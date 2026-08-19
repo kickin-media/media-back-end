@@ -22,8 +22,9 @@ from models.tag import Tag, TagRequest, PhotoTagRead
 from models.tagphotolink import TagPhotoLink
 
 from variables import S3_BUCKET, S3_UPLOAD_EXPIRY, S3_BUCKET_UPLOAD_PATH, S3_BUCKET_ORIGINAL_PATH, S3_BUCKET_PHOTO_PATH, \
-    PHOTO_PROCESSING_SQS_QUEUE, API_BASE
+    PHOTO_PROCESSING_SQS_QUEUE, API_BASE, SITEWIDE_PASSWORD
 
+import base64
 import boto3
 import botocore.exceptions
 import uuid
@@ -371,20 +372,28 @@ def trigger_photo_process(photo: Photo, exif_update_secret: str, author: Author,
                           delete_upload: bool = False, delay_seconds: int = 60, ttl: int = 30):
     sqs = boto3.client('sqs')
 
+    data = {
+        'TTL': ttl,
+        'S3_BUCKET': S3_BUCKET,
+        'S3_SOURCE_PATH': source_path,
+        'S3_BUCKET_PHOTO_PATH': S3_BUCKET_PHOTO_PATH,
+        'S3_BUCKET_ORIGINAL_PATH': S3_BUCKET_ORIGINAL_PATH,
+        'API_BASE': API_BASE
+    }
+
+    # If a sitewide password is configured, pass it (base64-encoded, ready to use as the
+    # X-Sitewide-Password header) so the Lambda can authenticate its API callbacks.
+    if SITEWIDE_PASSWORD is not None:
+        data['SITEWIDE_PASSWORD'] = base64.b64encode(
+            SITEWIDE_PASSWORD.encode('utf-8')).decode('utf-8')
+
     sqs_message_body = json.dumps({
         'photo_id': photo.id,
         'photo_secret': photo.secret,
         'exif_update_secret': exif_update_secret,
         'author': author.name,
         'delete_upload': delete_upload,
-        'data': {
-            'TTL': ttl,
-            'S3_BUCKET': S3_BUCKET,
-            'S3_SOURCE_PATH': source_path,
-            'S3_BUCKET_PHOTO_PATH': S3_BUCKET_PHOTO_PATH,
-            'S3_BUCKET_ORIGINAL_PATH': S3_BUCKET_ORIGINAL_PATH,
-            'API_BASE': API_BASE
-        }
+        'data': data
     })
 
     sqs.send_message(

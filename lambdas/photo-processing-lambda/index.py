@@ -30,6 +30,12 @@ def process(event, context):
 
         s3 = boto3.resource('s3')
 
+        # Build headers for API callbacks. If the API is protected by a sitewide password,
+        # it is passed along (base64-encoded) so our callbacks are not rejected with a 401.
+        api_headers = {}
+        if process_metadata.get('SITEWIDE_PASSWORD'):
+            api_headers['X-Sitewide-Password'] = process_metadata['SITEWIDE_PASSWORD']
+
         source_location = process_metadata['S3_SOURCE_PATH']
 
         sizes = {
@@ -63,13 +69,22 @@ def process(event, context):
         }
 
         # Figure out event ID for watermark.
-        photo_event_data = requests.get("/".join([process_metadata['API_BASE'], 'photo', photo_data['id'], 'event']))
-        photo_event_data = json.loads(photo_event_data.content)
+        photo_event_response = requests.get(
+            "/".join([process_metadata['API_BASE'], 'photo', photo_data['id'], 'event']),
+            headers=api_headers)
+        photo_event_data = json.loads(photo_event_response.content)
         if 'detail' in photo_event_data.keys():
             if photo_event_data['detail'] == 'photo_not_in_album':
                 raise Exception("Upload not yet assigned to album.")
             else:
                 raise Exception("Could not determine photo event link.")
+        elif photo_event_response.status_code != 200 or 'id' not in photo_event_data.keys():
+            # Unexpected response (e.g. a sitewide-password 401) that is not a recognised
+            # API error body -- surface it clearly instead of failing on a missing 'id' key.
+            raise Exception(
+                "Could not fetch photo event (HTTP {status}): {body}".format(
+                    status=photo_event_response.status_code,
+                    body=photo_event_response.text))
         else:
             photo_event_id = photo_event_data['id']
 
@@ -272,7 +287,8 @@ def process(event, context):
             json={
                 'exif_data': exif_data,
                 'gps_data': photo_gps_location
-            }
+            },
+            headers=api_headers
         )
         callback_data = json.loads(callback.content)
 
