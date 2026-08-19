@@ -48,10 +48,7 @@ class Album(AlbumBase, table=True):
     def cover_photo(self):
         if self.cover:
             return self.cover
-        # Only fall back to photos[0] if photos were already eager-loaded
-        state = inspect(self)
-        if 'photos' in state.dict:
-            return self.photos[0] if self.photos else None
+
         return None
 
 
