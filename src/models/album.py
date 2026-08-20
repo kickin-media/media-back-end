@@ -1,7 +1,8 @@
 import datetime
 
 from sqlalchemy import inspect
-from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy.orm import joinedload
+from sqlmodel import SQLModel, Field, Relationship, Session, select
 from typing import TYPE_CHECKING, Optional, List
 
 from models.photo import Photo, PhotoReadList, PhotoReadSingle, PhotoReadSingleStub
@@ -49,7 +50,51 @@ class Album(AlbumBase, table=True):
         if self.cover:
             return self.cover
 
-        return None
+        # Fallback cover, populated by attach_fallback_covers() where applicable
+        return getattr(self, '_fallback_cover', None)
+
+
+def attach_fallback_covers(db: Session, albums: List[Album]) -> None:
+    """Resolve a fallback cover photo for albums that have no explicit cover.
+
+    Costs at most two queries regardless of how many albums are passed in, and no
+    queries at all when every album already has a cover set. The picked photo is
+    arbitrary but stable: ordering by the link table's photo_id follows the
+    (album_id, photo_id) primary key, so MySQL can stop at the first processed photo
+    instead of sorting every photo in the album.
+    """
+    candidates = [album for album in albums if album.cover_id is None]
+    if not candidates:
+        return
+
+    # Only processed photos are usable: unprocessed ones have no secret, so
+    # Photo.img_urls would blow up on them.
+    fallback_id_subq = (
+        select(AlbumPhotoLink.photo_id)
+        .join(Photo, Photo.id == AlbumPhotoLink.photo_id)
+        .where(AlbumPhotoLink.album_id == Album.id, Photo.upload_processed == True)
+        .correlate(Album)
+        .order_by(AlbumPhotoLink.photo_id)
+        .limit(1)
+        .scalar_subquery()
+    )
+
+    statement = select(Album.id, fallback_id_subq).where(
+        Album.id.in_([album.id for album in candidates])
+    )
+    fallback_ids = {album_id: photo_id for album_id, photo_id in db.execute(statement).all()}
+
+    photo_ids = {photo_id for photo_id in fallback_ids.values() if photo_id is not None}
+    if not photo_ids:
+        return
+
+    photos = db.exec(
+        select(Photo).where(Photo.id.in_(photo_ids)).options(joinedload(Photo.author))
+    ).unique().all()
+    photos_by_id = {photo.id: photo for photo in photos}
+
+    for album in candidates:
+        album._fallback_cover = photos_by_id.get(fallback_ids.get(album.id))
 
 
 class AlbumCreate(AlbumBase):

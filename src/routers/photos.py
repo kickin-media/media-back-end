@@ -16,7 +16,7 @@ from typing import List
 from models.photo import Photo, OriginalPhotoDownload, PhotoUploadResponse, PhotoReadSingle, PhotoReadSingleStub, \
     PhotoStream, PhotoReadList
 from models.author import Author
-from models.album import Album
+from models.album import Album, attach_fallback_covers
 from models.event import EventReadSingle
 from models.tag import Tag, TagRequest, PhotoTagRead
 from models.tagphotolink import TagPhotoLink
@@ -158,6 +158,8 @@ def get_photo(photo_id: str,
 
     if photo is None:
         raise HTTPException(status_code=404, detail="photo_not_found")
+
+    attach_fallback_covers(db, photo.albums)
 
     photo_dict = photo.dict()
     photo_dict['img_urls'] = photo.img_urls

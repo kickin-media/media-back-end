@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from typing import List
 
 from models.album import Album, AlbumCreate, AlbumReadList, AlbumReadSingle, AlbumSetSecretStatus, AlbumSetCover, \
-    AlbumReadSingleStub
+    AlbumReadSingleStub, attach_fallback_covers
 from models.albumphotolink import AlbumPhotoLink
 from models.event import Event
 from models.photo import Photo
@@ -42,6 +42,7 @@ def list_albums(db: Session = Depends(get_db)):
     for album, count in results:
         album._cached_photos_count = count
         albums.append(album)
+    attach_fallback_covers(db, albums)
     return albums
 
 
@@ -59,6 +60,8 @@ def get_album(album_id: str, secret: str = None, db: Session = Depends(get_db),
 
     if album is None:
         raise HTTPException(status_code=404, detail="album_not_found")
+
+    attach_fallback_covers(db, [album])
 
     # Determine if we can show the photos in this album if it's a timed album.
     if album.release_time is not None:
@@ -114,6 +117,8 @@ def update_album(album_id: str, album: AlbumCreate, db: Session = Depends(get_db
     db.commit()
     db.refresh(db_album)
 
+    attach_fallback_covers(db, [db_album])
+
     return db_album
 
 
@@ -136,6 +141,8 @@ def update_album_hidden_status(album_id: str, hidden_status: AlbumSetSecretStatu
     db.add(album)
     db.commit()
     db.refresh(album)
+
+    attach_fallback_covers(db, [album])
 
     return album
 
@@ -167,6 +174,8 @@ def update_album_cover(album_id: str, cover_info: AlbumSetCover,
     db.commit()
     db.refresh(album)
 
+    attach_fallback_covers(db, [album])
+
     return album
 
 
@@ -190,6 +199,8 @@ def empty_album(album_id: str, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(db_album)
+
+    attach_fallback_covers(db, [db_album])
 
     return db_album
 

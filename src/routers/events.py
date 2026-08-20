@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from typing import List
 
 from models.event import Event, EventCreate, EventReadList, EventReadSingle
-from models.album import Album, AlbumReadList
+from models.album import Album, AlbumReadList, attach_fallback_covers
 from models.photo import Photo, PhotoReadSingleStub, PhotoUploadPreSignedUrl
 from models.tag import Tag, TagRequest, SearchRequest
 from models.tagphotolink import TagPhotoLink
@@ -120,6 +120,8 @@ def get_event_albums(event_id: str, db: Session = Depends(get_db),
     for album, count in results:
         album._cached_photos_count = count
         albums.append(album)
+
+    attach_fallback_covers(db, albums)
 
     return albums
 
