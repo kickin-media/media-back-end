@@ -45,11 +45,12 @@ class SitewidePasswordMiddleware(BaseHTTPMiddleware):
         try:
             decoded_bytes = base64.b64decode(password_header)
             provided_password = decoded_bytes.decode("utf-8")
-
-            if provided_password == self.password:
-                return await call_next(request)
         except Exception:
-            pass
+            return self._unauthorized_response(request)
+
+        # Keep call_next outside the try block so endpoint errors are not masked as a 401.
+        if provided_password == self.password:
+            return await call_next(request)
 
         # Authentication failed
         return self._unauthorized_response(request)
