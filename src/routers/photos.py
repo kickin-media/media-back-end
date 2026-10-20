@@ -11,13 +11,14 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from database import get_db
 from sqlmodel import Session, select
-from typing import List
+from typing import List, Optional
 
 from models.photo import Photo, OriginalPhotoDownload, PhotoUploadResponse, PhotoReadSingle, PhotoReadSingleStub, \
-    PhotoStream, PhotoReadList
+    PhotoStream, PhotoReadList, PhotoUploadRequest, PhotoChecksum, PhotoChecksumResult
 from models.author import Author
 from models.album import Album, attach_fallback_covers
-from models.event import EventReadSingle
+from models.albumphotolink import AlbumPhotoLink
+from models.event import Event, EventReadSingle
 from models.tag import Tag, TagRequest, PhotoTagRead
 from models.tagphotolink import TagPhotoLink
 
@@ -39,9 +40,14 @@ RETRY_BASE_DELAY = 0.5
 
 def _execute_with_retry(db: Session, statement, max_retries=MAX_RETRIES):
     """Execute a statement with retry on transient MySQL errors (lock timeout, deadlock)."""
+    return _transaction_with_retry(db, lambda: db.execute(statement), max_retries)
+
+
+def _transaction_with_retry(db: Session, work, max_retries=MAX_RETRIES):
+    """Run `work` and commit, retrying the whole transaction on transient MySQL errors (lock timeout, deadlock)."""
     for attempt in range(max_retries):
         try:
-            result = db.execute(statement)
+            result = work()
             db.commit()
             return result
         except OperationalError as e:
@@ -56,6 +62,60 @@ def _execute_with_retry(db: Session, statement, max_retries=MAX_RETRIES):
                 time.sleep(delay)
                 continue
             raise
+
+
+def photo_event_id(photo: Photo) -> Optional[str]:
+    """A photo belongs to the event of its albums. Same rule as `get_photo_event`."""
+    if len(photo.albums) == 0:
+        return None
+    return photo.albums[0].event_id
+
+
+def lock_event(db: Session, event_id: str) -> Event:
+    """Lock the event row so duplicate checks within one event run one at a time."""
+    return db.exec(select(Event).where(Event.id == event_id).with_for_update()).first()
+
+
+def find_event_duplicate(db: Session, event_id: str, content_hash: str,
+                         exclude_photo_id: Optional[str] = None) -> Optional[Photo]:
+    statement = select(Photo). \
+        join(AlbumPhotoLink, AlbumPhotoLink.photo_id == Photo.id). \
+        join(Album, Album.id == AlbumPhotoLink.album_id). \
+        where(Album.event_id == event_id, Photo.content_hash == content_hash). \
+        order_by(Photo.uploaded_at).limit(1)
+    if exclude_photo_id is not None:
+        statement = statement.where(Photo.id != exclude_photo_id)
+    # A locking read sees the latest committed hashes, which a plain read inside the same transaction might not.
+    return db.exec(statement.with_for_update(read=True)).first()
+
+
+def add_photo_to_album(photo: Photo, album: Album, event: Event) -> bool:
+    """Add a photo to an album of its own event. Returns whether the photo is in the album afterwards."""
+    if album in photo.albums:
+        return True
+    current_event_id = photo_event_id(photo)
+    if current_event_id is not None and current_event_id != album.event_id:
+        return False
+    if event.locked:
+        return False
+    photo.albums.append(album)
+    return True
+
+
+def merge_duplicate(db: Session, duplicate: Photo, existing: Photo, event: Event):
+    """Move the albums of a duplicate upload to the existing photo and delete the duplicate."""
+    for album in list(duplicate.albums):
+        add_photo_to_album(existing, album, event)
+        if album.cover_id == duplicate.id:
+            album.cover_id = existing.id
+            db.add(album)
+
+    for link in db.exec(select(TagPhotoLink).where(TagPhotoLink.photo_id == duplicate.id)).all():
+        db.delete(link)
+
+    duplicate.albums = []
+    db.add(existing)
+    db.delete(duplicate)
 
 
 router = APIRouter(
@@ -279,6 +339,47 @@ def get_photo_event(photo_id: str,
     return photo.albums[0].event
 
 
+@router.post("/{photo_id}/checksum/{photo_exif_secret}", response_model=PhotoChecksumResult)
+def register_checksum(photo_id: str, photo_exif_secret: str, checksum: PhotoChecksum,
+                      db: Session = Depends(get_db)):
+    """Called by the processing Lambda with the hash of the uploaded file, before it processes the photo."""
+
+    def work():
+        photo = db.get(Photo, photo_id)
+
+        if photo is None:
+            raise HTTPException(status_code=404, detail="photo_not_found")
+
+        if photo.exif_update_secret is None:
+            raise HTTPException(status_code=403, detail="photo_doesnt_expect_update")
+
+        if photo_exif_secret != photo.exif_update_secret:
+            raise HTTPException(status_code=403, detail="invalid_update_key")
+
+        if photo.content_hash == checksum.sha256:
+            return PhotoChecksumResult(status="unique")
+
+        event_id = photo_event_id(photo)
+        if event_id is None:
+            raise HTTPException(status_code=409, detail="photo_not_in_album")
+
+        event = lock_event(db, event_id)
+        existing = find_event_duplicate(db, event_id, checksum.sha256, exclude_photo_id=photo.id)
+
+        if existing is None:
+            photo.content_hash = checksum.sha256
+            db.add(photo)
+            return PhotoChecksumResult(status="unique")
+
+        merge_duplicate(db, duplicate=photo, existing=existing, event=event)
+        return PhotoChecksumResult(status="duplicate", duplicate_of=existing.id)
+
+    result = _transaction_with_retry(db, work)
+    if result.status == "duplicate":
+        logger.info("Discarded upload %s as a duplicate of %s", photo_id, result.duplicate_of)
+    return result
+
+
 @router.post("/{photo_id}/exif/{photo_exif_secret}")
 def finalize_upload(photo_id: str, photo_exif_secret: str, request_data: dict,
                           db: Session = Depends(get_db)):
@@ -371,7 +472,8 @@ def get_original_photo_upload(photo_id: str, db: Session = Depends(get_db)):
 
 
 def trigger_photo_process(photo: Photo, exif_update_secret: str, author: Author, source_path: str,
-                          delete_upload: bool = False, delay_seconds: int = 60, ttl: int = 30):
+                          delete_upload: bool = False, delay_seconds: int = 60, ttl: int = 30,
+                          check_duplicate: bool = False):
     sqs = boto3.client('sqs')
 
     data = {
@@ -395,6 +497,7 @@ def trigger_photo_process(photo: Photo, exif_update_secret: str, author: Author,
         'exif_update_secret': exif_update_secret,
         'author': author.name,
         'delete_upload': delete_upload,
+        'check_duplicate': check_duplicate,
         'data': data
     })
 
@@ -454,10 +557,39 @@ def reprocess_photo(photo_id: str,
     raise HTTPException(status_code=200, detail="scheduled")
 
 
+def _new_upload(author_id: str):
+    """Create a photo record and a pre-signed S3 upload URL for it. Does not add or commit the record."""
+    exif_update_secret = str(uuid.uuid4())
+
+    photo = Photo(
+        id=str(uuid.uuid4()),
+        secret=str(uuid.uuid4()),
+        uploaded_at=datetime.datetime.now(),
+        upload_processed=False,
+        author_id=author_id,
+        exif_update_secret=exif_update_secret
+    )
+
+    upload_url = boto3.client('s3').generate_presigned_post(
+        S3_BUCKET,
+        "/".join([S3_BUCKET_UPLOAD_PATH, photo.secret, "{}.jpg".format(photo.id)]),
+        ExpiresIn=S3_UPLOAD_EXPIRY
+    )
+
+    return photo, exif_update_secret, upload_url
+
+
 @router.post("/", response_model=List[PhotoUploadResponse])
 def create_upload(num_uploads: int = 1,
+                        upload_request: Optional[PhotoUploadRequest] = None,
                         auth_data=Depends(JWTBearer(required_permissions=['photos:upload'])),
                         db: Session = Depends(get_db)):
+    # Clients that send `upload_request` get duplicates filtered out before uploading. The response then has one entry
+    # per file, in request order. Duplicates have no upload URL and refer to the existing photo, which is added to the
+    # requested album. Clients without a body get `num_uploads` upload URLs, as before.
+    if upload_request is not None:
+        num_uploads = len(upload_request.files)
+
     # If this limit is ever changed, it needs to be updated in the front-end as well!
     if num_uploads < 1 or num_uploads > 500:
         raise HTTPException(status_code=400, detail="max_number_of_uploads_in_one_batch")
@@ -467,43 +599,54 @@ def create_upload(num_uploads: int = 1,
     if author is None:
         raise HTTPException(status_code=400, detail="create_author_data_first")
 
-    response_list = []
-    photos_to_process = []
+    def work():
+        response_list = []
+        photos_to_process = []
 
-    for i in range(num_uploads):
-        photo_id = str(uuid.uuid4())
-        photo_secret = str(uuid.uuid4())
-        exif_update_secret = str(uuid.uuid4())
+        if upload_request is None:
+            hashes = [None] * num_uploads
+            album = event = None
+        else:
+            hashes = [file.sha256 for file in upload_request.files]
+            album = db.get(Album, upload_request.album_id)
+            if album is None:
+                raise HTTPException(status_code=404, detail="album_not_found")
+            event = lock_event(db, album.event_id)
 
-        photo = Photo(
-            id=photo_id,
-            secret=photo_secret,
-            uploaded_at=datetime.datetime.now(),
-            upload_processed=False,
-            author_id=author_id,
-            exif_update_secret=exif_update_secret
-        )
+        new_photo_ids = {}
+        for content_hash in hashes:
+            if content_hash is not None:
+                if content_hash in new_photo_ids:
+                    response_list.append(PhotoUploadResponse(photo_id=new_photo_ids[content_hash], duplicate=True))
+                    continue
 
-        upload_url = boto3.client('s3').generate_presigned_post(
-            S3_BUCKET,
-            "/".join([S3_BUCKET_UPLOAD_PATH, photo.secret, "{}.jpg".format(photo.id)]),
-            ExpiresIn=S3_UPLOAD_EXPIRY
-        )
+                existing = find_event_duplicate(db, album.event_id, content_hash)
+                if existing is not None:
+                    add_photo_to_album(existing, album, event)
+                    db.add(existing)
+                    response_list.append(PhotoUploadResponse(photo_id=existing.id, duplicate=True))
+                    continue
 
-        db.add(photo)
+            photo, exif_update_secret, upload_url = _new_upload(author_id)
+            db.add(photo)
 
-        response_list.append(PhotoUploadResponse(
-            photo_id=photo.id,
-            pre_signed_url=upload_url
-        ))
+            if content_hash is not None:
+                new_photo_ids[content_hash] = photo.id
 
-        photos_to_process.append((photo, exif_update_secret, upload_url['fields']['key']))
+            response_list.append(PhotoUploadResponse(
+                photo_id=photo.id,
+                pre_signed_url=upload_url
+            ))
 
-    db.commit()
+            photos_to_process.append((photo, exif_update_secret, upload_url['fields']['key']))
+
+        return response_list, photos_to_process
+
+    response_list, photos_to_process = _transaction_with_retry(db, work)
 
     for photo, exif_update_secret, source_path in photos_to_process:
         trigger_photo_process(photo=photo, author=author, exif_update_secret=exif_update_secret, delete_upload=True,
-                              source_path=source_path)
+                              source_path=source_path, check_duplicate=True)
 
     return response_list
 
@@ -533,6 +676,9 @@ def replace_albums(photo_id: str,
                                     detail="cannot_add_to_album_{album_id}_event_{event_id}_locked".format(
                                         album_id=album.id, event_id=album.event.id))
         albums.append(album)
+
+    if len({album.event_id for album in albums}) > 1:
+        raise HTTPException(status_code=400, detail="albums_must_share_event")
 
     for album in photo.albums:
         if album.id not in album_ids:

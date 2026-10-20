@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw, ImageFont
 from exif import Image as ExifImage
 
 import boto3
+import hashlib
 import io
 import json
 import requests
@@ -20,7 +21,8 @@ def process(event, context):
                 'secret': process_message['photo_secret'],
                 'author': process_message['author'],
                 'update_secret': process_message['exif_update_secret'],
-                'delete_upload': process_message['delete_upload']
+                'delete_upload': process_message['delete_upload'],
+                'check_duplicate': process_message.get('check_duplicate', False)
             }
             process_metadata = process_message['data']
         except Exception as err:
@@ -99,6 +101,30 @@ def process(event, context):
                 raise Exception("Upload not yet found.")
             else:
                 raise err
+
+        # Discard the upload if the same file already exists in this event. The API merges it into the existing photo.
+        if photo_data['check_duplicate']:
+            content_hash = hashlib.sha256(photo_stream.getvalue()).hexdigest()
+            print(f"Checking for duplicates (sha256 {content_hash}).")
+            checksum_response = requests.post(
+                url="/".join(
+                    [process_metadata['API_BASE'], 'photo', photo_data['id'], 'checksum', photo_data['update_secret']]),
+                json={'sha256': content_hash},
+                headers=api_headers
+            )
+            if checksum_response.status_code == 404:
+                # Older API without duplicate detection, or the photo record is gone. Process as normal.
+                print(f"Duplicate check not available (HTTP 404): {checksum_response.text}")
+            elif checksum_response.status_code != 200:
+                raise Exception(
+                    "Could not check for duplicates (HTTP {status}): {body}".format(
+                        status=checksum_response.status_code,
+                        body=checksum_response.text))
+            elif checksum_response.json()['status'] == 'duplicate':
+                print(f"Upload is a duplicate of {checksum_response.json()['duplicate_of']}. Discarding.")
+                s3.Object(process_metadata['S3_BUCKET'], source_location).delete()
+                continue
+
         original_image = Image.open(photo_stream)
         print(f"Download completed ({round(photo_object.content_length / (1024 ** 2), 1)} MB).")
 

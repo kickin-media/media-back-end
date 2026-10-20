@@ -46,6 +46,9 @@ class Photo(PhotoBase, table=True):
     gps_lat: float = Field(default=None)
     gps_lon: float = Field(default=None)
 
+    # SHA-256 of the uploaded file, set by the processing Lambda. Used to detect duplicate uploads within an event.
+    content_hash: Optional[str] = Field(default=None, index=True)
+
     @property
     def exif(self):
         filtered_exif = {}
@@ -131,7 +134,27 @@ class PhotoUploadPreSignedUrl(SQLModel):
 
 class PhotoUploadResponse(SQLModel):
     photo_id: str
-    pre_signed_url: PhotoUploadPreSignedUrl
+    # Empty when the file is a duplicate of an existing photo, in which case `photo_id` refers to that photo.
+    pre_signed_url: Optional[PhotoUploadPreSignedUrl] = None
+    duplicate: bool = False
+
+
+class PhotoUploadFile(SQLModel):
+    sha256: str = Field(schema_extra={'pattern': r"^[0-9a-f]{64}$"})
+
+
+class PhotoUploadRequest(SQLModel):
+    album_id: str
+    files: List[PhotoUploadFile]
+
+
+class PhotoChecksum(SQLModel):
+    sha256: str = Field(schema_extra={'pattern': r"^[0-9a-f]{64}$"})
+
+
+class PhotoChecksumResult(SQLModel):
+    status: str
+    duplicate_of: Optional[str] = None
 
 
 class OriginalPhotoDownload(SQLModel):
