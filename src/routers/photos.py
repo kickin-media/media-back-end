@@ -43,8 +43,8 @@ def _execute_with_retry(db: Session, statement, max_retries=MAX_RETRIES):
     return _transaction_with_retry(db, lambda: db.execute(statement), max_retries)
 
 
+# Runs `work` and commits, retrying the whole transaction on a lock timeout or deadlock.
 def _transaction_with_retry(db: Session, work, max_retries=MAX_RETRIES):
-    """Run `work` and commit, retrying the whole transaction on transient MySQL errors (lock timeout, deadlock)."""
     for attempt in range(max_retries):
         try:
             result = work()
@@ -64,20 +64,20 @@ def _transaction_with_retry(db: Session, work, max_retries=MAX_RETRIES):
             raise
 
 
-def photo_event_id(photo: Photo) -> Optional[str]:
-    """A photo belongs to the event of its albums. Same rule as `get_photo_event`."""
+# A photo belongs to the event of its first album, same as in `get_photo_event`.
+def photo_event_id(photo: Photo):
     if len(photo.albums) == 0:
         return None
     return photo.albums[0].event_id
 
 
-def lock_event(db: Session, event_id: str) -> Event:
-    """Lock the event row so duplicate checks within one event run one at a time."""
+# Locking the event makes duplicate checks within one event run one at a time.
+def lock_event(db: Session, event_id: str):
     return db.exec(select(Event).where(Event.id == event_id).with_for_update()).first()
 
 
 def find_event_duplicate(db: Session, event_id: str, content_hash: str,
-                         exclude_photo_id: Optional[str] = None) -> Optional[Photo]:
+                         exclude_photo_id: Optional[str] = None):
     statement = select(Photo). \
         join(AlbumPhotoLink, AlbumPhotoLink.photo_id == Photo.id). \
         join(Album, Album.id == AlbumPhotoLink.album_id). \
@@ -89,21 +89,20 @@ def find_event_duplicate(db: Session, event_id: str, content_hash: str,
     return db.exec(statement.with_for_update(read=True)).first()
 
 
-def add_photo_to_album(photo: Photo, album: Album, event: Event) -> bool:
-    """Add a photo to an album of its own event. Returns whether the photo is in the album afterwards."""
-    if album in photo.albums:
-        return True
+def add_photo_to_album(photo: Photo, album: Album, event: Event):
+    if album in photo.albums or event.locked:
+        return
+
+    # A photo can only be in albums of one event.
     current_event_id = photo_event_id(photo)
     if current_event_id is not None and current_event_id != album.event_id:
-        return False
-    if event.locked:
-        return False
+        return
+
     photo.albums.append(album)
-    return True
 
 
+# Moves the albums of a duplicate upload to the existing photo and deletes the duplicate.
 def merge_duplicate(db: Session, duplicate: Photo, existing: Photo, event: Event):
-    """Move the albums of a duplicate upload to the existing photo and delete the duplicate."""
     for album in list(duplicate.albums):
         add_photo_to_album(existing, album, event)
         if album.cover_id == duplicate.id:
@@ -342,8 +341,7 @@ def get_photo_event(photo_id: str,
 @router.post("/{photo_id}/checksum/{photo_exif_secret}", response_model=PhotoChecksumResult)
 def register_checksum(photo_id: str, photo_exif_secret: str, checksum: PhotoChecksum,
                       db: Session = Depends(get_db)):
-    """Called by the processing Lambda with the hash of the uploaded file, before it processes the photo."""
-
+    # Called by the processing Lambda with the hash of the uploaded file, before it processes the photo.
     def work():
         photo = db.get(Photo, photo_id)
 
@@ -374,10 +372,7 @@ def register_checksum(photo_id: str, photo_exif_secret: str, checksum: PhotoChec
         merge_duplicate(db, duplicate=photo, existing=existing, event=event)
         return PhotoChecksumResult(status="duplicate", duplicate_of=existing.id)
 
-    result = _transaction_with_retry(db, work)
-    if result.status == "duplicate":
-        logger.info("Discarded upload %s as a duplicate of %s", photo_id, result.duplicate_of)
-    return result
+    return _transaction_with_retry(db, work)
 
 
 @router.post("/{photo_id}/exif/{photo_exif_secret}")
@@ -557,28 +552,6 @@ def reprocess_photo(photo_id: str,
     raise HTTPException(status_code=200, detail="scheduled")
 
 
-def _new_upload(author_id: str):
-    """Create a photo record and a pre-signed S3 upload URL for it. Does not add or commit the record."""
-    exif_update_secret = str(uuid.uuid4())
-
-    photo = Photo(
-        id=str(uuid.uuid4()),
-        secret=str(uuid.uuid4()),
-        uploaded_at=datetime.datetime.now(),
-        upload_processed=False,
-        author_id=author_id,
-        exif_update_secret=exif_update_secret
-    )
-
-    upload_url = boto3.client('s3').generate_presigned_post(
-        S3_BUCKET,
-        "/".join([S3_BUCKET_UPLOAD_PATH, photo.secret, "{}.jpg".format(photo.id)]),
-        ExpiresIn=S3_UPLOAD_EXPIRY
-    )
-
-    return photo, exif_update_secret, upload_url
-
-
 @router.post("/", response_model=List[PhotoUploadResponse])
 def create_upload(num_uploads: int = 1,
                         upload_request: Optional[PhotoUploadRequest] = None,
@@ -599,9 +572,9 @@ def create_upload(num_uploads: int = 1,
     if author is None:
         raise HTTPException(status_code=400, detail="create_author_data_first")
 
+    # Processing is queued once the photo is added to its first album, see `replace_albums`.
     def work():
         response_list = []
-        photos_to_process = []
 
         if upload_request is None:
             hashes = [None] * num_uploads
@@ -627,7 +600,25 @@ def create_upload(num_uploads: int = 1,
                     response_list.append(PhotoUploadResponse(photo_id=existing.id, duplicate=True))
                     continue
 
-            photo, exif_update_secret, upload_url = _new_upload(author_id)
+            photo_id = str(uuid.uuid4())
+            photo_secret = str(uuid.uuid4())
+            exif_update_secret = str(uuid.uuid4())
+
+            photo = Photo(
+                id=photo_id,
+                secret=photo_secret,
+                uploaded_at=datetime.datetime.now(),
+                upload_processed=False,
+                author_id=author_id,
+                exif_update_secret=exif_update_secret
+            )
+
+            upload_url = boto3.client('s3').generate_presigned_post(
+                S3_BUCKET,
+                "/".join([S3_BUCKET_UPLOAD_PATH, photo.secret, "{}.jpg".format(photo.id)]),
+                ExpiresIn=S3_UPLOAD_EXPIRY
+            )
+
             db.add(photo)
 
             if content_hash is not None:
@@ -638,17 +629,9 @@ def create_upload(num_uploads: int = 1,
                 pre_signed_url=upload_url
             ))
 
-            photos_to_process.append((photo, exif_update_secret, upload_url['fields']['key']))
+        return response_list
 
-        return response_list, photos_to_process
-
-    response_list, photos_to_process = _transaction_with_retry(db, work)
-
-    for photo, exif_update_secret, source_path in photos_to_process:
-        trigger_photo_process(photo=photo, author=author, exif_update_secret=exif_update_secret, delete_upload=True,
-                              source_path=source_path, check_duplicate=True)
-
-    return response_list
+    return _transaction_with_retry(db, work)
 
 
 @router.put("/{photo_id}/albums", response_model=PhotoReadSingleStub)
@@ -680,6 +663,10 @@ def replace_albums(photo_id: str,
     if len({album.event_id for album in albums}) > 1:
         raise HTTPException(status_code=400, detail="albums_must_share_event")
 
+    # A new upload is processed once it is added to its first album. The file is in S3 by then.
+    process_upload = len(current_album_ids) == 0 and len(albums) > 0 and not photo.upload_processed and \
+        photo.exif_update_secret is not None
+
     for album in photo.albums:
         if album.id not in album_ids:
             if album.cover_id == photo.id:
@@ -692,6 +679,11 @@ def replace_albums(photo_id: str,
     db.add(photo)
     db.commit()
     db.refresh(photo)
+
+    if process_upload:
+        upload_path = "/".join([S3_BUCKET_UPLOAD_PATH, photo.secret, "{}.jpg".format(photo.id)])
+        trigger_photo_process(photo=photo, author=photo.author, exif_update_secret=photo.exif_update_secret,
+                              delete_upload=True, source_path=upload_path, delay_seconds=0, check_duplicate=True)
 
     return photo
 
